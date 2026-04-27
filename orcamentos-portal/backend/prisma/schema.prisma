@@ -1,0 +1,425 @@
+// ============================================================
+// Portal de Orçamentos — Schema Prisma v1.0
+// Arquitetura: Monolito Modular
+// ============================================================
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  CLIENT
+  ANALYST
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum RequestStatus {
+  REQUESTED           // Solicitado — estado inicial
+  IN_ANALYSIS         // Em análise — analista assumiu
+  QUOTE_IN_PROGRESS   // Orçamento em elaboração
+  QUOTE_SENT          // Orçamento enviado ao cliente
+  APPROVED            // Aprovado pelo cliente
+  REJECTED            // Reprovado pelo cliente
+  ON_HOLD             // Em espera
+  CANCELLED           // Cancelado
+}
+
+enum QuoteStatus {
+  DRAFT               // Rascunho — analista ainda editando
+  SENT                // Enviado ao cliente
+  APPROVED
+  REJECTED
+  ON_HOLD
+  CANCELLED
+}
+
+enum QuoteItemOrigin {
+  TABLE               // Veio da tabela de preços
+  MANUAL              // Inserido manualmente pelo analista
+}
+
+enum ServiceTypeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PriceTableStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum PriceItemStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  VALUE_EDIT
+  SEND
+  APPROVE
+  REJECT
+  CANCEL
+}
+
+// ============================================================
+// MÓDULO: USUÁRIOS E ACESSO
+// ============================================================
+
+model User {
+  id            String     @id @default(uuid()) @db.Uuid
+  name          String     @db.VarChar(255)
+  email         String     @unique @db.VarChar(255)
+  passwordHash  String     @map("password_hash") @db.VarChar(255)
+  role          UserRole
+  status        UserStatus @default(ACTIVE)
+  lastLoginAt   DateTime?  @map("last_login_at")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  deletedAt     DateTime?  @map("deleted_at")
+
+  // Relações
+  clientUsers       ClientUser[]
+  requestsCreated   Request[]        @relation("RequestCreatedBy")
+  requestsAssigned  Request[]        @relation("RequestAssignedTo")
+  quotesCreated     Quote[]
+  auditLogs         AuditLog[]
+  quoteHistories    QuoteHistory[]
+  requestHistories  RequestHistory[]
+  priceTablesCreated PriceTable[]
+  priceItemsCreated  PriceItem[]
+
+  @@map("users")
+}
+
+// ============================================================
+// MÓDULO: CLIENTES (EMPRESAS/CONTAS)
+// ============================================================
+
+model Client {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(255)
+  tradeName   String?  @map("trade_name") @db.VarChar(255)
+  document    String?  @db.VarChar(18)        // CPF ou CNPJ
+  email       String?  @db.VarChar(255)
+  phone       String?  @db.VarChar(20)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Relações
+  clientUsers  ClientUser[]
+  requests     Request[]
+  priceTables  PriceTable[]
+
+  @@map("clients")
+}
+
+// Relação N:N entre User e Client
+// Um usuário pode representar múltiplos clientes
+model ClientUser {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  clientId  String   @map("client_id") @db.Uuid
+  isDefault Boolean  @default(false) @map("is_default") // cliente padrão do usuário
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id])
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@unique([userId, clientId])
+  @@map("client_users")
+}
+
+// ============================================================
+// MÓDULO: TIPOS DE SERVIÇO
+// ============================================================
+
+model ServiceType {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String            @db.VarChar(100)
+  description String?           @db.Text
+  status      ServiceTypeStatus @default(ACTIVE)
+  sortOrder   Int               @default(0) @map("sort_order")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  // Relações
+  requestServiceTypes RequestServiceType[]
+  priceItems          PriceItem[]
+  quoteItems          QuoteItem[]
+
+  @@map("service_types")
+}
+
+// ============================================================
+// MÓDULO: TABELA DE PREÇOS (por cliente)
+// ============================================================
+
+model PriceTable {
+  id          String           @id @default(uuid()) @db.Uuid
+  clientId    String           @map("client_id") @db.Uuid
+  name        String           @db.VarChar(255)
+  description String?          @db.Text
+  status      PriceTableStatus @default(ACTIVE)
+  version     Int              @default(1)
+  validFrom   DateTime?        @map("valid_from")
+  validUntil  DateTime?        @map("valid_until")
+  createdBy   String           @map("created_by") @db.Uuid
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  deletedAt   DateTime?        @map("deleted_at")
+
+  client     Client      @relation(fields: [clientId], references: [id])
+  createdByUser User     @relation(fields: [createdBy], references: [id])
+  items      PriceItem[]
+
+  @@map("price_tables")
+}
+
+model PriceItem {
+  id            String          @id @default(uuid()) @db.Uuid
+  priceTableId  String          @map("price_table_id") @db.Uuid
+  serviceTypeId String?         @map("service_type_id") @db.Uuid
+  code          String          @db.VarChar(50)
+  description   String          @db.VarChar(500)
+  unit          String          @db.VarChar(30)  // un, m, h, cx, etc.
+  unitValue     Decimal         @map("unit_value") @db.Decimal(12, 2)
+  notes         String?         @db.Text
+  status        PriceItemStatus @default(ACTIVE)
+  sortOrder     Int             @default(0) @map("sort_order")
+  createdBy     String          @map("created_by") @db.Uuid
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  priceTable    PriceTable   @relation(fields: [priceTableId], references: [id])
+  serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id])
+  createdByUser User         @relation(fields: [createdBy], references: [id])
+
+  @@map("price_items")
+}
+
+// ============================================================
+// MÓDULO: SOLICITAÇÕES
+// ============================================================
+
+model Request {
+  id                    String        @id @default(uuid()) @db.Uuid
+  requestNumber         String        @unique @map("request_number") @db.VarChar(20)
+  status                RequestStatus @default(REQUESTED)
+  isUrgent              Boolean       @default(false) @map("is_urgent")
+
+  // Quem solicitou
+  createdBy             String        @map("created_by") @db.Uuid
+  clientId              String        @map("client_id") @db.Uuid
+
+  // Dados do solicitante
+  requesterName         String        @map("requester_name") @db.VarChar(255)
+  requesterEmail        String        @map("requester_email") @db.VarChar(255)
+  requesterPhone        String?       @map("requester_phone") @db.VarChar(20)
+
+  // Dados do cliente final
+  finalClientName       String        @map("final_client_name") @db.VarChar(255)
+  finalClientCompany    String?       @map("final_client_company") @db.VarChar(255)
+  finalClientDocument   String?       @map("final_client_document") @db.VarChar(18)
+  finalClientContact    String?       @map("final_client_contact") @db.VarChar(255)
+  finalClientPhone      String?       @map("final_client_phone") @db.VarChar(20)
+
+  // Endereço
+  zipCode               String?       @map("zip_code") @db.VarChar(10)
+  street                String?       @db.VarChar(255)
+  streetNumber          String?       @map("street_number") @db.VarChar(20)
+  complement            String?       @db.VarChar(100)
+  neighborhood          String?       @db.VarChar(100)
+  city                  String?       @db.VarChar(100)
+  state                 String?       @db.Char(2)
+  reference             String?       @db.Text
+  latitude              Decimal?      @db.Decimal(10, 7)
+  longitude             Decimal?      @db.Decimal(10, 7)
+
+  // Dados do serviço
+  description           String?       @db.Text
+  observations          String?       @db.Text
+  requestedDate         DateTime?     @map("requested_date") @db.Date
+  estimatedDate         DateTime?     @map("estimated_date") @db.Date  // preenchido pelo analista
+
+  // Analista
+  assignedTo            String?       @map("assigned_to") @db.Uuid
+
+  // Timestamps
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+  deletedAt             DateTime?     @map("deleted_at")
+
+  // Relações
+  createdByUser         User          @relation("RequestCreatedBy", fields: [createdBy], references: [id])
+  client                Client        @relation(fields: [clientId], references: [id])
+  assignedToUser        User?         @relation("RequestAssignedTo", fields: [assignedTo], references: [id])
+  serviceTypes          RequestServiceType[]
+  quotes                Quote[]
+  history               RequestHistory[]
+
+  @@map("requests")
+}
+
+// Tipos de serviço vinculados a uma solicitação (N:N)
+model RequestServiceType {
+  id            String   @id @default(uuid()) @db.Uuid
+  requestId     String   @map("request_id") @db.Uuid
+  serviceTypeId String   @map("service_type_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  request     Request     @relation(fields: [requestId], references: [id])
+  serviceType ServiceType @relation(fields: [serviceTypeId], references: [id])
+
+  @@unique([requestId, serviceTypeId])
+  @@map("request_service_types")
+}
+
+// Histórico de status da solicitação
+model RequestHistory {
+  id             String        @id @default(uuid()) @db.Uuid
+  requestId      String        @map("request_id") @db.Uuid
+  performedBy    String        @map("performed_by") @db.Uuid
+  action         String        @db.VarChar(100)
+  fromStatus     RequestStatus? @map("from_status")
+  toStatus       RequestStatus? @map("to_status")
+  observations   String?       @db.Text
+  performedAt    DateTime      @default(now()) @map("performed_at")
+
+  request       Request @relation(fields: [requestId], references: [id])
+  performedByUser User  @relation(fields: [performedBy], references: [id])
+
+  @@map("request_history")
+}
+
+// ============================================================
+// MÓDULO: ORÇAMENTOS
+// ============================================================
+
+model Quote {
+  id               String      @id @default(uuid()) @db.Uuid
+  requestId        String      @map("request_id") @db.Uuid
+  status           QuoteStatus @default(DRAFT)
+  createdBy        String      @map("created_by") @db.Uuid
+
+  // Valores
+  subtotal         Decimal     @default(0) @db.Decimal(12, 2)
+  discount         Decimal     @default(0) @db.Decimal(12, 2)
+  totalValue       Decimal     @default(0) @map("total_value") @db.Decimal(12, 2)
+
+  // Observações
+  technicalNotes   String?     @map("technical_notes") @db.Text
+  commercialNotes  String?     @map("commercial_notes") @db.Text
+
+  // Motivo da decisão do cliente
+  decisionReason   String?     @map("decision_reason") @db.Text
+
+  // Timestamps chave
+  sentAt           DateTime?   @map("sent_at")
+  decidedAt        DateTime?   @map("decided_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  deletedAt        DateTime?   @map("deleted_at")
+
+  // Relações
+  request          Request      @relation(fields: [requestId], references: [id])
+  createdByUser    User         @relation(fields: [createdBy], references: [id])
+  items            QuoteItem[]
+  history          QuoteHistory[]
+
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id              String          @id @default(uuid()) @db.Uuid
+  quoteId         String          @map("quote_id") @db.Uuid
+  serviceTypeId   String?         @map("service_type_id") @db.Uuid
+  origin          QuoteItemOrigin @default(TABLE)
+
+  // Referência ao item da tabela (quando origem = TABLE)
+  priceItemId     String?         @map("price_item_id") @db.Uuid
+
+  // Dados do item (copiados/editados)
+  code            String?         @db.VarChar(50)
+  description     String          @db.VarChar(500)
+  unit            String          @db.VarChar(30)
+  quantity        Decimal         @db.Decimal(10, 3)
+  unitValue       Decimal         @map("unit_value") @db.Decimal(12, 2)
+  totalValue      Decimal         @map("total_value") @db.Decimal(12, 2)
+
+  // Auditoria de edição manual
+  originalUnitValue Decimal?      @map("original_unit_value") @db.Decimal(12, 2)
+  wasManuallyEdited Boolean       @default(false) @map("was_manually_edited")
+
+  sortOrder       Int             @default(0) @map("sort_order")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  quote           Quote        @relation(fields: [quoteId], references: [id])
+  serviceType     ServiceType? @relation(fields: [serviceTypeId], references: [id])
+
+  @@map("quote_items")
+}
+
+// Histórico de alterações do orçamento
+model QuoteHistory {
+  id            String      @id @default(uuid()) @db.Uuid
+  quoteId       String      @map("quote_id") @db.Uuid
+  performedBy   String      @map("performed_by") @db.Uuid
+  action        AuditAction
+  fromStatus    QuoteStatus? @map("from_status")
+  toStatus      QuoteStatus? @map("to_status")
+  observations  String?     @db.Text
+  metadata      Json?       // valores anteriores/novos quando relevante
+  performedAt   DateTime    @default(now()) @map("performed_at")
+
+  quote           Quote @relation(fields: [quoteId], references: [id])
+  performedByUser User  @relation(fields: [performedBy], references: [id])
+
+  @@map("quote_history")
+}
+
+// ============================================================
+// MÓDULO: AUDITORIA GERAL
+// ============================================================
+
+model AuditLog {
+  id          String      @id @default(uuid()) @db.Uuid
+  userId      String?     @map("user_id") @db.Uuid
+  action      AuditAction
+  entityType  String      @map("entity_type") @db.VarChar(100)
+  entityId    String      @map("entity_id") @db.Uuid
+  oldValues   Json?       @map("old_values")
+  newValues   Json?       @map("new_values")
+  ipAddress   String?     @map("ip_address") @db.VarChar(45)
+  userAgent   String?     @map("user_agent") @db.Text
+  performedAt DateTime    @default(now()) @map("performed_at")
+
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId, performedAt])
+  @@map("audit_logs")
+}

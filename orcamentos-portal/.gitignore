@@ -1,0 +1,63 @@
+# ── Ambiente ──────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+.env.staging
+!.env.example
+**/.env
+**/.env.local
+**/.env.*.local
+**/.env.development
+**/.env.test
+**/.env.production
+**/.env.staging
+!**/.env.example
+
+# ── Node ──────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+
+# ── Build ─────────────────────────────────────────────────
+dist/
+build/
+*.tsbuildinfo
+.cache/
+.turbo/
+coverage/
+
+# ── OS ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDE ───────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+
+# ── Docker ────────────────────────────────────────────────
+# (não ignorar docker-compose.yml — ele é necessário)
+
+# ── SSL ───────────────────────────────────────────────────
+nginx/ssl/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# ── Logs ──────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Banco local / arquivos sensíveis ──────────────────────
+*.sqlite
+*.sqlite3
+*.db
+
+# ── Arquivos temporários ──────────────────────────────────
+tmp/
+temp/
+*.tmp
