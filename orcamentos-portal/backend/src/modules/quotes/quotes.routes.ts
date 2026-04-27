@@ -542,7 +542,7 @@ type QuoteRecalcTx = Prisma.TransactionClient
 
 async function recalculateQuoteTotals(tx: QuoteRecalcTx, quoteId: string) {
   const items = await tx.quoteItem.findMany({ where: { quoteId }, select: { totalValue: true } })
-  const subtotal = items.reduce((acc: number, item: { totalValue: Prisma.Decimal }) => acc + toNumber(item.totalValue), 0)
+  const subtotal = items.reduce((acc: number, item: { totalValue: unknown }) => acc + toNumber(item.totalValue), 0)
 
   const quote   = await tx.quote.findUnique({ where: { id: quoteId }, select: { discount: true } })
   const discount = toNumber(quote?.discount ?? 0)

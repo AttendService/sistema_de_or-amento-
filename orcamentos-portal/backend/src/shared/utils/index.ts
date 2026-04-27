@@ -4,7 +4,6 @@
 import type { PaginationQuery, PaginatedResult } from '../types/index.js'
 import prisma from '../../infrastructure/database/prisma.js'
 import type { AuditAction } from '../types/index.js'
-import { Prisma } from '@prisma/client'
 
 // ── Paginação ─────────────────────────────────────────────
 export function parsePagination(query: PaginationQuery) {
@@ -42,14 +41,17 @@ export async function logAudit(params: {
   ipAddress?: string
   userAgent?: string
 }) {
+  const oldValues = toJsonValue(params.oldValues)
+  const newValues = toJsonValue(params.newValues)
+
   await prisma.auditLog.create({
     data: {
       userId:     params.userId,
       action:     params.action,
       entityType: params.entityType,
       entityId:   params.entityId,
-      oldValues:  toJsonValue(params.oldValues),
-      newValues:  toJsonValue(params.newValues),
+      oldValues,
+      newValues,
       ipAddress:  params.ipAddress,
       userAgent:  params.userAgent,
     },
@@ -78,11 +80,10 @@ export function toNumber(value: unknown): number {
   return parseFloat(String(value))
 }
 
-type AuditJsonInput = Prisma.AuditLogCreateInput['oldValues']
+type AuditCreateData = Parameters<typeof prisma.auditLog.create>[0]['data']
+type AuditJsonInput = AuditCreateData['oldValues']
 
 function toJsonValue(value: unknown): AuditJsonInput | undefined {
   if (value === undefined) return undefined
-  const serialized = JSON.parse(JSON.stringify(value))
-  if (serialized === null) return Prisma.JsonNull
-  return serialized as AuditJsonInput
+  return JSON.parse(JSON.stringify(value)) as AuditJsonInput
 }
