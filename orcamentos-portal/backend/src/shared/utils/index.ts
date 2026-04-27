@@ -80,10 +80,12 @@ export function toNumber(value: unknown): number {
   return parseFloat(String(value))
 }
 
-type AuditCreateData = Parameters<typeof prisma.auditLog.create>[0]['data']
-type AuditJsonInput = AuditCreateData['oldValues']
+type AuditJsonPrimitive = string | number | boolean
+type AuditJsonInput = AuditJsonPrimitive | { [key: string]: AuditJsonInput } | AuditJsonInput[]
 
 function toJsonValue(value: unknown): AuditJsonInput | undefined {
   if (value === undefined) return undefined
-  return JSON.parse(JSON.stringify(value)) as AuditJsonInput
+  const serialized: unknown = JSON.parse(JSON.stringify(value))
+  if (serialized === null) return undefined
+  return serialized as AuditJsonInput
 }
