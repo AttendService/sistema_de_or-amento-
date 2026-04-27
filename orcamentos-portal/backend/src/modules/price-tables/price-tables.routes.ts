@@ -4,6 +4,7 @@
 // ============================================================
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import type { Prisma } from '@prisma/client'
 import prisma from '../../infrastructure/database/prisma.js'
 import { NotFoundError, ForbiddenError } from '../../shared/errors/index.js'
 import { logAudit } from '../../shared/utils/index.js'
@@ -231,7 +232,7 @@ export async function priceTableRoutes(app: FastifyInstance) {
     })
     const version = (lastTable?.version ?? 0) + 1
 
-    const cloned = await prisma.$transaction(async (tx) => {
+    const cloned = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const newTable = await tx.priceTable.create({
         data: {
           clientId,
@@ -245,7 +246,7 @@ export async function priceTableRoutes(app: FastifyInstance) {
 
       if (source.items.length > 0) {
         await tx.priceItem.createMany({
-          data: source.items.map((item) => ({
+          data: source.items.map((item: (typeof source.items)[number]) => ({
             priceTableId:  newTable.id,
             serviceTypeId: item.serviceTypeId,
             code:          item.code,

@@ -4,7 +4,7 @@
 import type { PaginationQuery, PaginatedResult } from '../types/index.js'
 import prisma from '../../infrastructure/database/prisma.js'
 import type { AuditAction } from '../types/index.js'
-import type { Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 
 // ── Paginação ─────────────────────────────────────────────
 export function parsePagination(query: PaginationQuery) {
@@ -78,7 +78,11 @@ export function toNumber(value: unknown): number {
   return parseFloat(String(value))
 }
 
-function toJsonValue(value: unknown): Prisma.InputJsonValue | undefined {
+type AuditJsonInput = Prisma.AuditLogCreateInput['oldValues']
+
+function toJsonValue(value: unknown): AuditJsonInput | undefined {
   if (value === undefined) return undefined
-  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
+  const serialized = JSON.parse(JSON.stringify(value))
+  if (serialized === null) return Prisma.JsonNull
+  return serialized as AuditJsonInput
 }

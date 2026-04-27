@@ -3,6 +3,7 @@
 // ============================================================
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import type { Prisma } from '@prisma/client'
 import prisma from '../../infrastructure/database/prisma.js'
 import {
   NotFoundError, ForbiddenError, InvalidTransitionError, ValidationError,
@@ -203,7 +204,7 @@ export async function requestRoutes(app: FastifyInstance) {
       throw new ValidationError('Um ou mais tipos de serviço são inválidos ou inativos.')
     }
 
-    const request = await prisma.$transaction(async (tx) => {
+    const request = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const created = await tx.request.create({
         data: {
           clientId:            data.clientId,
@@ -293,7 +294,7 @@ export async function requestRoutes(app: FastifyInstance) {
     }
     const data = result.data
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const { serviceTypeIds, ...rest } = data
       await tx.request.update({ where: { id }, data: rest })
 
@@ -356,7 +357,7 @@ export async function requestRoutes(app: FastifyInstance) {
       throw new ValidationError(`Observação obrigatória para status '${newStatus}'.`)
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.request.update({
         where: { id },
         data:  {
@@ -401,7 +402,7 @@ export async function requestRoutes(app: FastifyInstance) {
 
     const targetId = analystId ?? requester.sub
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.request.update({
         where: { id },
         data:  { assignedTo: targetId, status: 'IN_ANALYSIS' },

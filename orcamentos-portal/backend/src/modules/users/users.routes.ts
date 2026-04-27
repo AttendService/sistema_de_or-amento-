@@ -3,6 +3,7 @@
 // ============================================================
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import type { Prisma } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import prisma from '../../infrastructure/database/prisma.js'
 import { NotFoundError, ConflictError, ForbiddenError } from '../../shared/errors/index.js'
@@ -114,7 +115,7 @@ export async function userRoutes(app: FastifyInstance) {
     const passwordHash = await bcrypt.hash(data.password, 12)
     const requester    = req.user as JwtPayload
 
-    const user = await prisma.$transaction(async (tx) => {
+    const user = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const created = await tx.user.create({
         data: {
           name:         data.name,

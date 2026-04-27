@@ -7,6 +7,12 @@ import prisma from '../../infrastructure/database/prisma.js'
 import { toNumber } from '../../shared/utils/index.js'
 import type { JwtPayload } from '../../shared/types/index.js'
 
+type ServiceTypeGroup = { serviceTypeId: string | null; _count: { requestId: number } }
+type StatusGroup = { status: string; _count: { id: number } }
+type AssignedGroup = { assignedTo: string | null; _count: { id: number } }
+type ClientGroup = { clientId: string; _count: { id: number } }
+type MonthGroup = { month: string; count: bigint }
+
 const DateRangeSchema = z.object({
   from:     z.string().date().optional(),
   to:       z.string().date().optional(),
@@ -116,25 +122,25 @@ export async function dashboardRoutes(app: FastifyInstance) {
     ])
 
     // Resolver nomes dos tipos de serviço
-    const serviceTypeIds = byServiceType.map((r) => r.serviceTypeId).filter(Boolean) as string[]
+    const serviceTypeIds = (byServiceType as ServiceTypeGroup[]).map((r: ServiceTypeGroup) => r.serviceTypeId).filter(Boolean) as string[]
     const serviceTypeNames = await prisma.serviceType.findMany({
       where: { id: { in: serviceTypeIds } },
       select: { id: true, name: true },
     })
-    const stMap = Object.fromEntries(serviceTypeNames.map((st) => [st.id, st.name]))
+    const stMap = Object.fromEntries(serviceTypeNames.map((st: { id: string; name: string }) => [st.id, st.name]))
 
     return reply.send({
       summary: {
         total:    totalRequests,
         urgent:   urgentCount,
-        byStatus: Object.fromEntries(byStatus.map((r) => [r.status, r._count.id])),
+        byStatus: Object.fromEntries((byStatus as StatusGroup[]).map((r: StatusGroup) => [r.status, r._count.id])),
       },
-      byServiceType: byServiceType.map((r) => ({
+      byServiceType: (byServiceType as ServiceTypeGroup[]).map((r: ServiceTypeGroup) => ({
         serviceTypeId:   r.serviceTypeId,
         serviceTypeName: stMap[r.serviceTypeId!] ?? 'Desconhecido',
         count:           r._count.requestId,
       })),
-      byMonth: byMonth.map((r) => ({ month: r.month, count: Number(r.count) })),
+      byMonth: (byMonth as MonthGroup[]).map((r: MonthGroup) => ({ month: r.month, count: Number(r.count) })),
     })
   })
 
@@ -190,9 +196,9 @@ export async function dashboardRoutes(app: FastifyInstance) {
     ])
 
     // Resolver nomes
-    const analystIds = byAnalyst.map((r) => r.assignedTo).filter(Boolean) as string[]
-    const clientIds2 = byClient.map((r) => r.clientId)
-    const stIds      = byServiceType.map((r) => r.serviceTypeId).filter(Boolean) as string[]
+    const analystIds = (byAnalyst as AssignedGroup[]).map((r: AssignedGroup) => r.assignedTo).filter(Boolean) as string[]
+    const clientIds2 = (byClient as ClientGroup[]).map((r: ClientGroup) => r.clientId)
+    const stIds      = (byServiceType as ServiceTypeGroup[]).map((r: ServiceTypeGroup) => r.serviceTypeId).filter(Boolean) as string[]
 
     const [analystNames, clientNames, stNames, approvedQuotes] = await Promise.all([
       prisma.user.findMany({ where: { id: { in: analystIds } }, select: { id: true, name: true } }),
@@ -205,15 +211,15 @@ export async function dashboardRoutes(app: FastifyInstance) {
       }),
     ])
 
-    const analystMap = Object.fromEntries(analystNames.map((u) => [u.id, u.name]))
-    const clientMap  = Object.fromEntries(clientNames.map((c) => [c.id, c.name]))
-    const stMap      = Object.fromEntries(stNames.map((s) => [s.id, s.name]))
+    const analystMap = Object.fromEntries(analystNames.map((u: { id: string; name: string }) => [u.id, u.name]))
+    const clientMap  = Object.fromEntries(clientNames.map((c: { id: string; name: string }) => [c.id, c.name]))
+    const stMap      = Object.fromEntries(stNames.map((s: { id: string; name: string }) => [s.id, s.name]))
 
     return reply.send({
       summary: {
         total:    totalRequests,
         urgent:   urgentCount,
-        byStatus: Object.fromEntries(byStatus.map((r) => [r.status, r._count.id])),
+        byStatus: Object.fromEntries((byStatus as StatusGroup[]).map((r: StatusGroup) => [r.status, r._count.id])),
       },
       quotes: {
         total:         quoteStats._count.id,
@@ -221,22 +227,22 @@ export async function dashboardRoutes(app: FastifyInstance) {
         approved:      approvedQuotes._count.id,
         approvedValue: toNumber(approvedQuotes._sum.totalValue),
       },
-      byAnalyst: byAnalyst.map((r) => ({
+      byAnalyst: (byAnalyst as AssignedGroup[]).map((r: AssignedGroup) => ({
         analystId:   r.assignedTo,
         analystName: analystMap[r.assignedTo!] ?? 'Sem analista',
         count:       r._count.id,
       })),
-      byClient: byClient.map((r) => ({
+      byClient: (byClient as ClientGroup[]).map((r: ClientGroup) => ({
         clientId:   r.clientId,
         clientName: clientMap[r.clientId] ?? 'Desconhecido',
         count:      r._count.id,
       })),
-      byServiceType: byServiceType.map((r) => ({
+      byServiceType: (byServiceType as ServiceTypeGroup[]).map((r: ServiceTypeGroup) => ({
         serviceTypeId:   r.serviceTypeId,
         serviceTypeName: stMap[r.serviceTypeId!] ?? 'Desconhecido',
         count:           r._count.requestId,
       })),
-      byMonth: byMonth.map((r) => ({ month: r.month, count: Number(r.count) })),
+      byMonth: (byMonth as MonthGroup[]).map((r: MonthGroup) => ({ month: r.month, count: Number(r.count) })),
     })
   })
 

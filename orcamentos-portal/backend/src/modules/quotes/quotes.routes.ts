@@ -3,6 +3,7 @@
 // ============================================================
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import type { Prisma } from '@prisma/client'
 import prisma from '../../infrastructure/database/prisma.js'
 import {
   NotFoundError, ForbiddenError, InvalidTransitionError, ValidationError,
@@ -122,7 +123,7 @@ export async function quoteRoutes(app: FastifyInstance) {
       })
     }
 
-    const quote = await prisma.$transaction(async (tx) => {
+    const quote = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const created = await tx.quote.create({
         data: {
           requestId,
@@ -243,7 +244,7 @@ export async function quoteRoutes(app: FastifyInstance) {
     const totalValue        = data.quantity * data.unitValue
     const wasManuallyEdited = originalUnitValue !== null && data.unitValue !== originalUnitValue
 
-    const item = await prisma.$transaction(async (tx) => {
+    const item = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const created = await tx.quoteItem.create({
         data: {
           quoteId,
@@ -308,7 +309,7 @@ export async function quoteRoutes(app: FastifyInstance) {
     const originalValue   = toNumber(existing.originalUnitValue ?? existing.unitValue)
     const wasManuallyEdited = data.unitValue !== undefined && data.unitValue !== originalValue
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const upd = await tx.quoteItem.update({
         where: { id: itemId },
         data:  {
@@ -346,7 +347,7 @@ export async function quoteRoutes(app: FastifyInstance) {
     const existing = await prisma.quoteItem.findFirst({ where: { id: itemId, quoteId } })
     if (!existing) throw new NotFoundError('Item do orçamento', itemId)
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.quoteItem.delete({ where: { id: itemId } })
       await recalculateQuoteTotals(tx, quoteId)
     })
@@ -369,7 +370,7 @@ export async function quoteRoutes(app: FastifyInstance) {
       throw new ValidationError('O orçamento precisa ter pelo menos um item antes de ser enviado.')
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.quote.update({
         where: { id: quoteId },
         data:  { status: 'SENT', sentAt: new Date() },
@@ -455,7 +456,7 @@ export async function quoteRoutes(app: FastifyInstance) {
       CANCELLED: 'CANCELLED',
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.quote.update({
         where: { id: quoteId },
         data:  { status: newStatus, decisionReason: decisionReason ?? null, decidedAt: new Date() },
@@ -537,9 +538,11 @@ async function loadQuoteWithRequest(requestId: string, quoteId: string) {
   return { request, quote }
 }
 
-async function recalculateQuoteTotals(tx: any, quoteId: string) {
+type QuoteRecalcTx = Prisma.TransactionClient
+
+async function recalculateQuoteTotals(tx: QuoteRecalcTx, quoteId: string) {
   const items = await tx.quoteItem.findMany({ where: { quoteId }, select: { totalValue: true } })
-  const subtotal = items.reduce((acc: number, item: { totalValue: any }) => acc + toNumber(item.totalValue), 0)
+  const subtotal = items.reduce((acc: number, item: { totalValue: Prisma.Decimal }) => acc + toNumber(item.totalValue), 0)
 
   const quote   = await tx.quote.findUnique({ where: { id: quoteId }, select: { discount: true } })
   const discount = toNumber(quote?.discount ?? 0)

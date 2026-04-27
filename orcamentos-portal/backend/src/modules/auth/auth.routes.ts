@@ -9,6 +9,12 @@ import { UnauthorizedError, AppError } from '../../shared/errors/index.js'
 import { logAudit } from '../../shared/utils/index.js'
 import type { JwtPayload } from '../../shared/types/index.js'
 
+type UserClientLink = {
+  clientId: string
+  isDefault: boolean
+  client: { id: string; name: string }
+}
+
 // ── Schemas ───────────────────────────────────────────────
 const LoginSchema = z.object({
   email:    z.string().email('E-mail inválido.'),
@@ -47,8 +53,9 @@ export async function loginService(
     throw new AppError('USER_INACTIVE', 'Usuário inativo ou suspenso.', 403)
   }
 
-  const clientIds     = user.clientUsers.map((cu) => cu.clientId)
-  const defaultCU     = user.clientUsers.find((cu) => cu.isDefault)
+  const clientUsers = user.clientUsers as UserClientLink[]
+  const clientIds     = clientUsers.map((cu: UserClientLink) => cu.clientId)
+  const defaultCU     = clientUsers.find((cu: UserClientLink) => cu.isDefault)
   const defaultClientId = defaultCU?.clientId ?? clientIds[0] ?? null
 
   const payload: JwtPayload = {
@@ -89,7 +96,7 @@ export async function loginService(
       role:           user.role,
       clientIds,
       defaultClientId,
-      clients:        user.clientUsers.map((cu) => ({ id: cu.clientId, name: cu.client.name, isDefault: cu.isDefault })),
+      clients:        clientUsers.map((cu: UserClientLink) => ({ id: cu.clientId, name: cu.client.name, isDefault: cu.isDefault })),
     },
   }
 }
@@ -130,8 +137,9 @@ export async function authRoutes(app: FastifyInstance) {
       })
       if (!user) throw new UnauthorizedError()
 
-      const clientIds       = user.clientUsers.map((cu) => cu.clientId)
-      const defaultCU       = user.clientUsers.find((cu) => cu.isDefault)
+      const clientUsers = user.clientUsers as UserClientLink[]
+      const clientIds       = clientUsers.map((cu: UserClientLink) => cu.clientId)
+      const defaultCU       = clientUsers.find((cu: UserClientLink) => cu.isDefault)
       const defaultClientId = defaultCU?.clientId ?? clientIds[0] ?? null
 
       const payload: JwtPayload = {
@@ -165,7 +173,7 @@ export async function authRoutes(app: FastifyInstance) {
       email:          dbUser.email,
       role:           dbUser.role,
       status:         dbUser.status,
-      clients:        dbUser.clientUsers.map((cu) => ({ id: cu.clientId, name: cu.client.name, isDefault: cu.isDefault })),
+      clients:        (dbUser.clientUsers as UserClientLink[]).map((cu: UserClientLink) => ({ id: cu.clientId, name: cu.client.name, isDefault: cu.isDefault })),
     })
   })
 
