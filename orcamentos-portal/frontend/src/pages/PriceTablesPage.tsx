@@ -1,10 +1,9 @@
 // ============================================================
 // Tabela de Preços — CRUD (Admin)
 // ============================================================
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
-  Plus, Edit3, Trash2, Search, ChevronLeft, Check,
-  Package, DollarSign, Copy,
+  Plus, Edit3, Trash2, Search, Check, Copy,
 } from 'lucide-react'
 import {
   useClients, usePriceTables, usePriceTable,
@@ -29,10 +28,24 @@ export default function PriceTablesPage() {
   const qc = useQueryClient()
 
   const { data: clientsData } = useClients({ limit: 100 })
-  const clients = clientsData?.data ?? []
+  const clients = useMemo(() => clientsData?.data ?? [], [clientsData?.data])
+
+  useEffect(() => {
+    if (!clients.length) {
+      return
+    }
+
+    const selectedClientStillExists = clients.some((client: any) => client.id === selectedClientId)
+
+    if (!selectedClientId || !selectedClientStillExists) {
+      setSelectedClientId(clients[0].id)
+      setSelectedTableId('')
+    }
+  }, [clients, selectedClientId])
 
   const { data: tables = [], isLoading: loadingTables } = usePriceTables(selectedClientId, true)
-  const activeTable = tables.find((t: any) => t.id === selectedTableId) ?? tables[0]
+  const defaultTable = tables.find((t: any) => t.status === 'ACTIVE') ?? tables[0]
+  const activeTable = tables.find((t: any) => t.id === selectedTableId) ?? defaultTable
 
   const { data: tableDetail, isLoading: loadingItems } = usePriceTable(
     selectedClientId, activeTable?.id ?? '',
@@ -164,7 +177,7 @@ export default function PriceTablesPage() {
                         key={t.id}
                         onClick={() => setSelectedTableId(t.id)}
                         className={`w-full text-left px-3 py-2.5 rounded text-sm transition-all
-                          ${(selectedTableId === t.id || (!selectedTableId && t.id === tables[0]?.id))
+                          ${(selectedTableId === t.id || (!selectedTableId && t.id === defaultTable?.id))
                             ? 'bg-brand-50 text-brand-700 font-medium'
                             : 'hover:bg-surface-50 text-surface-700'}`}
                       >

@@ -2,7 +2,7 @@
 // Tipos de Serviço — CRUD Admin
 // ============================================================
 import React, { useState } from 'react'
-import { Plus, Edit3, Tags, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, Edit3, Tags } from 'lucide-react'
 import { useServiceTypes } from '../hooks/queries'
 import { api, extractApiError } from '../lib/api'
 import { Modal, FormField, Alert, Spinner, PageLoader } from '../components/ui'

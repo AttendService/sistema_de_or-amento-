@@ -5,7 +5,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, Plus, Trash2, Search, Send, Save,
-  Edit3, Check, X, AlertTriangle, RefreshCw,
+  Edit3, Check, X,
 } from 'lucide-react'
 import {
   useRequest, useQuote, usePriceTables, usePriceTable,
@@ -20,6 +20,11 @@ interface Props {
   requestId: string
   quoteId:   string
   onBack?:   () => void
+}
+
+type PriceItemDraft = {
+  quantity: number
+  unitValue: number
 }
 
 export default function QuoteBuilderPage({ requestId, quoteId, onBack }: Props) {
@@ -40,6 +45,7 @@ export default function QuoteBuilderPage({ requestId, quoteId, onBack }: Props) 
   const [selectedTableId,  setSelectedTableId]  = useState<string>('')
   const [priceSearch,      setPriceSearch]      = useState('')
   const [selectedSTFilter, setSelectedSTFilter] = useState('')
+  const [priceItemDrafts, setPriceItemDrafts] = useState<Record<string, PriceItemDraft>>({})
   const tableId = selectedTableId || activeTable?.id
 
   const { data: priceTableData } = usePriceTable(
@@ -77,7 +83,43 @@ export default function QuoteBuilderPage({ requestId, quoteId, onBack }: Props) 
   const isDraft = quote.status === 'DRAFT'
   const items   = quote.items ?? []
 
+  const getDraftForPriceItem = (priceItem: any): PriceItemDraft => {
+    const existing = priceItemDrafts[priceItem.id]
+    if (existing) return existing
+    return {
+      quantity: 1,
+      unitValue: Number(parseFloat(priceItem.unitValue).toFixed(2)),
+    }
+  }
+
+  const setDraftForPriceItem = (priceItemId: string, patch: Partial<PriceItemDraft>) => {
+    setPriceItemDrafts((prev) => {
+      const current = prev[priceItemId] ?? { quantity: 1, unitValue: 0 }
+      return {
+        ...prev,
+        [priceItemId]: {
+          ...current,
+          ...patch,
+        },
+      }
+    })
+  }
+
   const handleAddFromTable = async (priceItem: any) => {
+    const draft = getDraftForPriceItem(priceItem)
+    const quantity = Number(draft.quantity)
+    const unitValue = Number(draft.unitValue)
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setApiError('Informe uma quantidade maior que zero para adicionar o item.')
+      return
+    }
+
+    if (!Number.isFinite(unitValue) || unitValue <= 0) {
+      setApiError('Informe um valor unitário maior que zero para adicionar o item.')
+      return
+    }
+
     try {
       await addItem.mutateAsync({
         requestId, quoteId,
@@ -88,8 +130,8 @@ export default function QuoteBuilderPage({ requestId, quoteId, onBack }: Props) 
           code:          priceItem.code,
           description:   priceItem.description,
           unit:          priceItem.unit,
-          quantity:      1,
-          unitValue:     parseFloat(priceItem.unitValue),
+          quantity,
+          unitValue,
         },
       })
     } catch (err) { setApiError(extractApiError(err)) }
@@ -215,21 +257,51 @@ export default function QuoteBuilderPage({ requestId, quoteId, onBack }: Props) 
                     {priceItems.length === 0
                       ? <p className="text-xs text-surface-400 text-center py-6">Nenhum item encontrado</p>
                       : priceItems.map((item: any) => (
-                        <div key={item.id}
-                          className="flex items-start justify-between gap-2 p-2.5 rounded border border-surface-100 hover:border-brand-200 hover:bg-brand-50/40 transition-all group">
-                          <div className="flex-1 min-w-0">
+                        <div
+                          key={item.id}
+                          className="p-2.5 rounded border border-surface-100 hover:border-brand-200 hover:bg-brand-50/40 transition-all"
+                        >
+                          <div className="min-w-0">
                             <p className="text-xs font-medium text-surface-800 truncate">{item.description}</p>
                             <p className="text-xs text-surface-400">{item.code} · {item.unit}</p>
-                            <p className="text-xs font-semibold text-brand-600">{formatCurrency(parseFloat(item.unitValue))}</p>
                           </div>
-                          <button
-                            className="btn-sm p-1 opacity-0 group-hover:opacity-100 btn-primary"
-                            onClick={() => handleAddFromTable(item)}
-                            disabled={addItem.isPending}
-                            title="Adicionar ao orçamento"
-                          >
-                            <Plus size={12} />
-                          </button>
+                          <div className="mt-2 grid grid-cols-12 gap-2 items-end">
+                            <div className="col-span-3">
+                              <p className="text-[10px] uppercase tracking-wide text-surface-400">Qtd</p>
+                              <input
+                                type="number"
+                                min="0.001"
+                                step="0.001"
+                                value={getDraftForPriceItem(item).quantity}
+                                onChange={(e) => setDraftForPriceItem(item.id, { quantity: Number(e.target.value) })}
+                                className="form-input text-xs py-1.5"
+                              />
+                            </div>
+                            <div className="col-span-5">
+                              <p className="text-[10px] uppercase tracking-wide text-surface-400">Valor unit.</p>
+                              <input
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                value={getDraftForPriceItem(item).unitValue}
+                                onChange={(e) => setDraftForPriceItem(item.id, { unitValue: Number(e.target.value) })}
+                                className="form-input text-xs py-1.5"
+                              />
+                            </div>
+                            <div className="col-span-4 flex justify-end">
+                              <button
+                                className="btn-sm p-1.5 btn-primary"
+                                onClick={() => handleAddFromTable(item)}
+                                disabled={addItem.isPending}
+                                title="Adicionar ao orçamento"
+                              >
+                                <Plus size={12} />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="mt-1 text-[11px] text-brand-700 font-semibold">
+                            Total: {formatCurrency(getDraftForPriceItem(item).quantity * getDraftForPriceItem(item).unitValue)}
+                          </p>
                         </div>
                       ))
                     }
@@ -440,6 +512,7 @@ export default function QuoteBuilderPage({ requestId, quoteId, onBack }: Props) 
               <select value={manualItem.unit} onChange={e => setManualItem(v => ({ ...v, unit: e.target.value }))}
                 className="form-input appearance-none">
                 {['un','m','m²','m³','h','cx','kg','l','vb'].map(u => <option key={u}>{u}</option>)}
+                <option>km</option>
               </select>
             </FormField>
             <FormField label="Quantidade">

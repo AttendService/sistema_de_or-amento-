@@ -45,23 +45,40 @@ interface KpiCardProps {
   label:    string
   value:    string | number
   icon?:    React.ReactNode
-  delta?:   string
+  delta?:   {
+    value: string | number
+    isPositive: boolean
+  }
   color?:   string
   loading?: boolean
 }
 
 export function KpiCard({ label, value, icon, delta, color = 'text-brand-500', loading }: KpiCardProps) {
   return (
-    <div className="kpi-card">
-      <div className="flex items-start justify-between">
-        <p className="kpi-label">{label}</p>
-        {icon && <span className={`${color} opacity-70`}>{icon}</span>}
+    <div className="kpi-card group relative">
+      <div className="flex items-start justify-between relative z-10">
+        <div>
+          <p style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--c-surface-400)', textTransform: 'uppercase', letterSpacing: '0.07em', lineHeight: 1 }}>{label}</p>
+          {loading
+            ? <div className="h-4 w-14 bg-surface-100 rounded animate-pulse mt-1" />
+            : (
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <p style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--c-surface-900)', lineHeight: 1.2 }}>{value}</p>
+                {delta && (
+                  <span className={`text-[9px] font-bold px-1 py-0.5 rounded-full ${delta.isPositive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                    {delta.isPositive ? '↑' : '↓'} {delta.value}
+                  </span>
+                )}
+              </div>
+            )
+          }
+        </div>
+        {icon && (
+          <div className={`p-1.5 rounded-md bg-surface-50 ${color} group-hover:scale-110 group-hover:bg-white transition-all duration-300`}>
+            {icon}
+          </div>
+        )}
       </div>
-      {loading
-        ? <div className="h-8 w-20 bg-surface-100 rounded animate-pulse mt-1" />
-        : <p className="kpi-value">{value}</p>
-      }
-      {delta && <p className="kpi-delta text-emerald-600">{delta}</p>}
     </div>
   )
 }
@@ -110,8 +127,9 @@ interface ModalProps {
 
 export function Modal({ open, onClose, title, children, footer, maxWidth = 'max-w-lg' }: ModalProps) {
   if (!open) return null
+  if (typeof document === 'undefined') return null
 
-  const modalContent = (
+  return createPortal(
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal-box ${maxWidth}`}>
         <div className="modal-header">
@@ -123,11 +141,9 @@ export function Modal({ open, onClose, title, children, footer, maxWidth = 'max-
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-footer">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
-
-  if (typeof document === 'undefined') return modalContent
-  return createPortal(modalContent, document.body)
 }
 
 // ── Alert ─────────────────────────────────────────────────

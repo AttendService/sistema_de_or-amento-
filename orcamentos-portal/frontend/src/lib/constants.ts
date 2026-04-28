@@ -9,7 +9,14 @@ export type RequestStatus =
 export type QuoteStatus =
   | 'DRAFT' | 'SENT' | 'APPROVED' | 'REJECTED' | 'ON_HOLD' | 'CANCELLED'
 
-export type UserRole = 'CLIENT' | 'ANALYST' | 'ADMIN'
+export type UserRole =
+  | 'CLIENT'
+  | 'ANALYST'
+  | 'ADMIN'
+  | 'COMMERCIAL'
+  | 'COMMERCIAL_MANAGER'
+  | 'PRESALES'
+  | 'PRESALES_MANAGER'
 
 // ── Labels de status ──────────────────────────────────────
 export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {

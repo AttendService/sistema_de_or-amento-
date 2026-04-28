@@ -5,44 +5,46 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FileText } from 'lucide-react'
 import { useRequests } from '../hooks/queries'
-import { useRole } from '../store/auth.store'
 import {
   RequestStatusBadge, PageLoader, EmptyState, Pagination,
 } from '../components/ui'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/constants'
 
-// ── Lista de orçamentos (menu "Orçamentos" do cliente) ────
+// ── Lista de orçamentos (menu "Orçamentos" do cliente) ————
 export default function QuotesListPage() {
   const navigate = useNavigate()
-  const role     = useRole()
   const [page, setPage] = useState(1)
+  const [statusFilter, setStatusFilter] = useState('QUOTE_SENT')
 
-  // Cliente: pendentes de decisão | Analista/Admin: visão ampla dos orçamentos
+  // Para cliente: mostra solicitações com orçamento (todos os status relevantes)
   const { data, isLoading } = useRequests({
     page, limit: 20,
+    status: statusFilter || undefined,
   })
 
-  const requests = (data?.data ?? []).filter((r: any) => {
-    const quote = r.quotes?.[0]
-    if (!quote) return false
-    if (role === 'CLIENT') return ['QUOTE_SENT', 'ON_HOLD'].includes(r.status)
-    return true
-  })
+  const requests   = data?.data ?? []
   const totalPages = data?.meta?.totalPages ?? 1
-  const total      = requests.length
+  const total      = data?.meta?.total ?? 0
 
   return (
     <div className="fade-in">
       <div className="page-header">
         <div>
           <h1 className="font-semibold text-surface-900">Orçamentos</h1>
-          {!isLoading && (
-            <p className="text-xs text-surface-400">
-              {total} orçamento{total !== 1 ? 's' : ''}
-              {role === 'CLIENT' ? ' aguardando decisão' : ' vinculados às solicitações'}
-            </p>
-          )}
+          {!isLoading && <p className="text-xs text-surface-400">{total} orçamento{total !== 1 ? 's' : ''}</p>}
         </div>
+        {/* Filtro de status */}
+        <select
+          value={statusFilter}
+          onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
+          className="form-input appearance-none text-sm w-auto"
+        >
+          <option value="QUOTE_SENT">Aguardando decisão</option>
+          <option value="APPROVED">Aprovados</option>
+          <option value="REJECTED">Reprovados</option>
+          <option value="ON_HOLD">Em espera</option>
+          <option value="">Todos</option>
+        </select>
       </div>
 
       <div className="page-body space-y-4">
@@ -64,6 +66,7 @@ export default function QuotesListPage() {
                       <th>Cliente final</th>
                       <th>Tipos de serviço</th>
                       <th>Data envio</th>
+                      <th>Tempo Resp.</th>
                       <th>Valor</th>
                       <th>Status</th>
                       <th>Ação</th>
@@ -72,8 +75,16 @@ export default function QuotesListPage() {
                   <tbody>
                     {requests.map((r: any) => {
                       const quote = r.quotes?.[0]
+                      let slaStr = '—'
+                      if (quote?.sentAt || quote?.createdAt) {
+                        const end = new Date(quote.sentAt || quote.createdAt).getTime()
+                        const start = new Date(r.createdAt).getTime()
+                        const diffH = (end - start) / (1000 * 60 * 60)
+                        slaStr = diffH < 1 ? '< 1h' : diffH < 24 ? `${diffH.toFixed(1)}h` : `${(diffH/24).toFixed(1)}d`
+                      }
+
                       return (
-                        <tr key={r.id}>
+                        <tr key={r.id} className="cursor-pointer hover:bg-surface-50 transition-colors" onClick={() => navigate(`/requests/${r.id}`)}>
                           <td>
                             <p className="font-mono text-xs font-medium text-brand-600">{r.requestNumber}</p>
                             <p className="text-xs text-surface-400">{formatDateTime(r.createdAt)}</p>
@@ -89,13 +100,16 @@ export default function QuotesListPage() {
                             </div>
                           </td>
                           <td className="text-xs text-surface-500">
-                            {quote ? formatDate(quote.sentAt) : '—'}
+                            {quote ? formatDate(quote.sentAt || quote.createdAt) : '—'}
+                          </td>
+                          <td className="text-xs font-semibold text-surface-600">
+                            {slaStr}
                           </td>
                           <td className="font-semibold text-brand-600 text-sm">
                             {quote ? formatCurrency(quote.totalValue ?? 0) : '—'}
                           </td>
                           <td><RequestStatusBadge status={r.status} /></td>
-                          <td>
+                          <td onClick={e => e.stopPropagation()}>
                             <button
                               className="btn-primary btn-sm"
                               onClick={() => navigate(`/requests/${r.id}`)}

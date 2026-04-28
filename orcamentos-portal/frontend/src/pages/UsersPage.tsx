@@ -2,19 +2,29 @@
 // Usuários — Admin
 // ============================================================
 import React, { useState } from 'react'
-import { Plus, Edit3, Search, UserCheck, UserX, Shield } from 'lucide-react'
-import { useUsers, useCreateUser, useUpdateUser } from '../hooks/queries'
+import { Plus, Edit3, Search, Shield } from 'lucide-react'
+import { useUsers, useCreateUser, useUpdateUser, useClients } from '../hooks/queries'
 import { Modal, FormField, Alert, Spinner, PageLoader, EmptyState, Pagination } from '../components/ui'
 import { formatDateTime } from '../lib/constants'
-import { extractApiError } from '../lib/api'
+import { api, extractApiError } from '../lib/api'
 
 const ROLE_LABEL: Record<string, string> = {
-  CLIENT: 'Cliente', ANALYST: 'Analista', ADMIN: 'Administrador',
+  CLIENT: 'Cliente',
+  ANALYST: 'Analista',
+  ADMIN: 'Administrador',
+  COMMERCIAL: 'Comercial',
+  COMMERCIAL_MANAGER: 'Gestor Comercial',
+  PRESALES: 'Pré-vendas',
+  PRESALES_MANAGER: 'Gestor Pré-vendas',
 }
 const ROLE_COLOR: Record<string, string> = {
   CLIENT: 'bg-blue-50 text-blue-700',
   ANALYST: 'bg-purple-50 text-purple-700',
   ADMIN: 'bg-amber-50 text-amber-700',
+  COMMERCIAL: 'bg-cyan-50 text-cyan-700',
+  COMMERCIAL_MANAGER: 'bg-cyan-100 text-cyan-800',
+  PRESALES: 'bg-emerald-50 text-emerald-700',
+  PRESALES_MANAGER: 'bg-emerald-100 text-emerald-800',
 }
 const STATUS_COLOR: Record<string, string> = {
   ACTIVE: 'text-emerald-600', INACTIVE: 'text-surface-400', SUSPENDED: 'text-red-500',
@@ -32,30 +42,51 @@ export default function UsersPage() {
   const createUser = useCreateUser()
   const updateUser = useUpdateUser()
 
+  const { data: clientsData } = useClients({ limit: 100 })
+  const clients = clientsData?.data ?? []
+
   const [modal,    setModal]    = useState<{ open: boolean; user?: any }>({ open: false })
   const [apiError, setApiError] = useState('')
 
   const [form, setForm] = useState({
     name: '', email: '', password: '', role: 'CLIENT' as string,
     status: 'ACTIVE' as string,
+    clientIds: [] as string[],
   })
 
   const openCreate = () => {
-    setForm({ name: '', email: '', password: '', role: 'CLIENT', status: 'ACTIVE' })
+    setForm({ name: '', email: '', password: '', role: 'CLIENT', status: 'ACTIVE', clientIds: [] })
     setModal({ open: true })
   }
   const openEdit = (user: any) => {
-    setForm({ name: user.name, email: user.email, password: '', role: user.role, status: user.status })
+    const linkedClientIds = user.clientUsers?.map((cu: any) => cu.clientId) || []
+    setForm({ 
+      name: user.name, email: user.email, password: '', 
+      role: user.role, status: user.status, clientIds: linkedClientIds 
+    })
     setModal({ open: true, user })
   }
 
   const handleSubmit = async () => {
     setApiError('')
     try {
+      if (form.role === 'CLIENT' && form.clientIds.length === 0) {
+        setApiError('Selecione ao menos um cliente para vincular.')
+        return
+      }
+
       if (modal.user) {
         const data: Record<string, unknown> = { name: form.name, email: form.email, role: form.role, status: form.status }
         if (form.password) data.password = form.password
         await updateUser.mutateAsync({ id: modal.user.id, data })
+
+        // Sincronizar clientes de forma determinística para evitar conflitos
+        if (form.role === 'CLIENT') {
+          await api.put(`/api/v1/users/${modal.user.id}/clients`, {
+            clientIds: form.clientIds,
+            defaultClientId: form.clientIds[0],
+          })
+        }
       } else {
         await createUser.mutateAsync(form)
       }
@@ -92,6 +123,10 @@ export default function UsersPage() {
             <option value="CLIENT">Cliente</option>
             <option value="ANALYST">Analista</option>
             <option value="ADMIN">Administrador</option>
+            <option value="COMMERCIAL">Comercial</option>
+            <option value="COMMERCIAL_MANAGER">Gestor Comercial</option>
+            <option value="PRESALES">Pré-vendas</option>
+            <option value="PRESALES_MANAGER">Gestor Pré-vendas</option>
           </select>
         </div>
 
@@ -195,11 +230,15 @@ export default function UsersPage() {
           </FormField>
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Perfil">
-              <select value={form.role} onChange={e => setForm(v => ({ ...v, role: e.target.value }))}
+              <select value={form.role} onChange={e => setForm(v => ({ ...v, role: e.target.value, clientIds: [] }))}
                 className="form-input appearance-none">
                 <option value="CLIENT">Cliente</option>
                 <option value="ANALYST">Analista</option>
                 <option value="ADMIN">Administrador</option>
+                <option value="COMMERCIAL">Comercial</option>
+                <option value="COMMERCIAL_MANAGER">Gestor Comercial</option>
+                <option value="PRESALES">Pré-vendas</option>
+                <option value="PRESALES_MANAGER">Gestor Pré-vendas</option>
               </select>
             </FormField>
             <FormField label="Status">
@@ -211,6 +250,19 @@ export default function UsersPage() {
               </select>
             </FormField>
           </div>
+          {form.role === 'CLIENT' && (
+            <FormField label="Cliente a vincular" required error={form.clientIds.length === 0 ? "Selecione ao menos um cliente" : ""}>
+              <select 
+                value={form.clientIds[0] || ""} 
+                onChange={e => setForm(v => ({ ...v, clientIds: e.target.value ? [e.target.value] : [] }))}
+                className="form-input appearance-none">
+                <option value="">Selecione o Cliente</option>
+                {clients.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </FormField>
+          )}
         </div>
       </Modal>
     </div>

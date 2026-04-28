@@ -1,9 +1,9 @@
 // ============================================================
 // Fila de Solicitações
 // ============================================================
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Search, Filter, Plus, Zap, Eye } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Search, Filter, Plus, Eye } from 'lucide-react'
 import { useRequests } from '../hooks/queries'
 import { useRole } from '../store/auth.store'
 import {
@@ -12,6 +12,7 @@ import {
 import { formatDate, formatDateTime } from '../lib/constants'
 
 const STATUS_OPTIONS = [
+  { value: 'REQUESTED,IN_ANALYSIS,QUOTE_IN_PROGRESS', label: 'Pendentes de ação (Minha fila)' },
   { value: '', label: 'Todos os status' },
   { value: 'REQUESTED',         label: 'Solicitado'              },
   { value: 'IN_ANALYSIS',       label: 'Em análise'              },
@@ -32,13 +33,23 @@ const SORT_OPTIONS = [
 export default function RequestsPage() {
   const navigate = useNavigate()
   const role     = useRole()
+  const [searchParams] = useSearchParams()
+
+  const initialStatus = searchParams.get('status')
+  const initialUrgent = searchParams.get('urgent')
 
   const [page,    setPage]    = useState(1)
   const [q,       setQ]       = useState('')
-  const [status,  setStatus]  = useState('')
-  const [urgent,  setUrgent]  = useState<boolean | undefined>()
+  const [status,  setStatus]  = useState(initialStatus !== null ? initialStatus : (role !== 'CLIENT' ? 'REQUESTED,IN_ANALYSIS,QUOTE_IN_PROGRESS' : ''))
+  const [urgent,  setUrgent]  = useState<boolean | undefined>(initialUrgent === 'true' ? true : initialUrgent === 'false' ? false : undefined)
   const [sort,    setSort]    = useState('createdAt')
-  const [showFilters, setShowFilters] = useState(false)
+  const [showFilters, setShowFilters] = useState(!!initialStatus || !!initialUrgent)
+
+  // Sempre que URL mudar, força atualizar se user clicou novamente
+  useEffect(() => {
+    if (searchParams.has('status')) setStatus(searchParams.get('status') || '')
+    if (searchParams.has('urgent')) setUrgent(searchParams.get('urgent') === 'true')
+  }, [searchParams])
 
   const { data, isLoading } = useRequests({
     page, limit: 20, q: q || undefined,
@@ -98,7 +109,12 @@ export default function RequestsPage() {
                   <label className="form-label">Status</label>
                   <select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}
                     className="form-input appearance-none">
-                    {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    {role === 'CLIENT' && <option value="">Todos os status</option>}
+                    {STATUS_OPTIONS.map(o => {
+                      if (role === 'CLIENT' && o.value === 'REQUESTED,IN_ANALYSIS,QUOTE_IN_PROGRESS') return null;
+                      if (role === 'CLIENT' && o.value === '') return null;
+                      return <option key={o.value} value={o.value}>{o.label}</option>
+                    })}
                   </select>
                 </div>
                 <div>
@@ -125,7 +141,7 @@ export default function RequestsPage() {
                 </div>
                 <div className="flex items-end">
                   <button className="btn-ghost btn-sm" onClick={() => {
-                    setStatus(''); setUrgent(undefined); setSort('createdAt'); setQ(''); setPage(1)
+                    setStatus(role !== 'CLIENT' ? 'REQUESTED,IN_ANALYSIS,QUOTE_IN_PROGRESS' : ''); setUrgent(undefined); setSort('createdAt'); setQ(''); setPage(1)
                   }}>
                     Limpar filtros
                   </button>
@@ -160,44 +176,58 @@ export default function RequestsPage() {
                       <th>Cliente final</th>
                       <th>Tipos de serviço</th>
                       <th>Data prevista</th>
+                      {role === 'CLIENT' && <th>Tempo Resp.</th>}
                       <th>Status</th>
                       <th>Ações</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {requests.map((r: any) => (
-                      <tr key={r.id} className="cursor-pointer" onClick={() => navigate(`/requests/${r.id}`)}>
-                        <td>
-                          <div className="flex flex-col">
-                            <span className="font-mono text-xs font-medium text-brand-600">{r.requestNumber}</span>
-                            {r.isUrgent && <UrgentBadge />}
-                          </div>
-                        </td>
-                        <td className="text-xs text-surface-500">{formatDateTime(r.createdAt)}</td>
-                        <td>
-                          <div>
-                            <p className="text-sm font-medium text-surface-800">{r.requesterName}</p>
-                            {role !== 'CLIENT' && (
-                              <p className="text-xs text-surface-400">{r.client?.name}</p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="text-sm">{r.finalClientName}</td>
-                        <td>
-                          <div className="flex flex-wrap gap-1">
-                            {r.serviceTypes?.slice(0, 2).map((st: any) => (
-                              <span key={st.serviceTypeId}
-                                className="text-xs bg-surface-100 text-surface-600 px-1.5 py-0.5 rounded">
-                                {st.serviceType.name}
-                              </span>
-                            ))}
-                            {r.serviceTypes?.length > 2 && (
-                              <span className="text-xs text-surface-400">+{r.serviceTypes.length - 2}</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="text-sm text-surface-500">{formatDate(r.requestedDate)}</td>
-                        <td><RequestStatusBadge status={r.status} /></td>
+                    {requests.map((r: any) => {
+                      const quote = r.quotes?.[0]
+                      let slaStr = '-'
+                      if (quote?.sentAt || quote?.createdAt) {
+                        const end = new Date(quote.sentAt || quote.createdAt).getTime()
+                        const start = new Date(r.createdAt).getTime()
+                        const diffH = (end - start) / (1000 * 60 * 60)
+                        slaStr = diffH < 1 ? '< 1h' : diffH < 24 ? `${diffH.toFixed(1)}h` : `${(diffH/24).toFixed(1)}d`
+                      }
+
+                      return (
+                        <tr key={r.id} className="cursor-pointer" onClick={() => navigate(`/requests/${r.id}`)}>
+                          <td>
+                            <div className="flex flex-col">
+                              <span className="font-mono text-xs font-medium text-brand-600">{r.requestNumber}</span>
+                              {r.isUrgent && <UrgentBadge />}
+                            </div>
+                          </td>
+                          <td className="text-xs text-surface-500">{formatDateTime(r.createdAt)}</td>
+                          <td>
+                            <div>
+                              <p className="text-sm font-medium text-surface-800">{r.requesterName}</p>
+                              {role !== 'CLIENT' && (
+                                <p className="text-xs text-surface-400">{r.client?.name}</p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="text-sm">{r.finalClientName}</td>
+                          <td>
+                            <div className="flex flex-wrap gap-1">
+                              {r.serviceTypes?.slice(0, 2).map((st: any) => (
+                                <span key={st.serviceTypeId}
+                                  className="text-xs bg-surface-100 text-surface-600 px-1.5 py-0.5 rounded">
+                                  {st.serviceType.name}
+                                </span>
+                              ))}
+                              {r.serviceTypes?.length > 2 && (
+                                <span className="text-xs text-surface-400">+{r.serviceTypes.length - 2}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="text-sm text-surface-500">{formatDate(r.requestedDate)}</td>
+                          {role === 'CLIENT' && (
+                            <td className="text-sm font-semibold text-surface-600">{slaStr}</td>
+                          )}
+                          <td><RequestStatusBadge status={r.status} /></td>
                         <td onClick={e => e.stopPropagation()}>
                           <button className="btn-ghost btn-sm p-1.5"
                             onClick={() => navigate(`/requests/${r.id}`)}>
@@ -205,7 +235,8 @@ export default function RequestsPage() {
                           </button>
                         </td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

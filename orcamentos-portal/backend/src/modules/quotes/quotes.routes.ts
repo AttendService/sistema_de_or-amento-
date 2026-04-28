@@ -15,10 +15,15 @@ import {
   type QuoteStatus, type JwtPayload,
 } from '../../shared/types/index.js'
 
+const IdSchema = z.string().regex(
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+  'ID inválido.',
+)
+
 // ── Schemas ───────────────────────────────────────────────
-const ParamsSchema        = z.object({ requestId: z.string().uuid() })
-const QuoteParamsSchema   = z.object({ requestId: z.string().uuid(), quoteId: z.string().uuid() })
-const ItemParamsSchema    = z.object({ requestId: z.string().uuid(), quoteId: z.string().uuid(), itemId: z.string().uuid() })
+const ParamsSchema        = z.object({ requestId: IdSchema })
+const QuoteParamsSchema   = z.object({ requestId: IdSchema, quoteId: IdSchema })
+const ItemParamsSchema    = z.object({ requestId: IdSchema, quoteId: IdSchema, itemId: IdSchema })
 
 const CreateQuoteSchema = z.object({
   technicalNotes:  z.string().optional().nullable(),
@@ -26,8 +31,8 @@ const CreateQuoteSchema = z.object({
 })
 
 const AddItemSchema = z.object({
-  priceItemId:   z.string().uuid().optional().nullable(),   // se origem TABLE
-  serviceTypeId: z.string().uuid().optional().nullable(),
+  priceItemId:   IdSchema.optional().nullable(),   // se origem TABLE
+  serviceTypeId: IdSchema.optional().nullable(),
   origin:        z.enum(['TABLE', 'MANUAL']).default('TABLE'),
   code:          z.string().max(50).optional().nullable(),
   description:   z.string().min(1).max(500),

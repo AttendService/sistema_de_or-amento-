@@ -1,132 +1,267 @@
-// ============================================================
-// App.tsx — Roteamento completo + Guards
-// ============================================================
 import React from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useIsAuthenticated, useRole } from './store/auth.store'
+import { useAuthHydrated, useAuthStore, useIsAuthenticated, useRole } from './store/auth.store'
 
-import AppLayout          from './layouts/AppLayout'
-import LoginPage          from './pages/LoginPage'
-import DashboardPage      from './pages/DashboardPage'
-import RequestsPage       from './pages/RequestsPage'
-import NewRequestPage     from './pages/NewRequestPage'
-import RequestDetailPage  from './pages/RequestDetailPage'
-import QuotesListPage     from './pages/QuotesListPage'
-import PriceTablesPage    from './pages/PriceTablesPage'
-import UsersPage          from './pages/UsersPage'
-import ClientsPage        from './pages/ClientsPage'
-import ServiceTypesPage   from './pages/ServiceTypesPage'
-import ReportsPage        from './pages/ReportsPage'
-import ProfilePage        from './pages/ProfilePage'
-import QuoteDetailPage    from './pages/QuoteDetailPage'
+import AppLayout from './layouts/AppLayout'
+import ClientsPage from './pages/ClientsPage'
+import DashboardPage from './pages/DashboardPage'
+import LoginPage from './pages/LoginPage'
+import NewRequestPage from './pages/NewRequestPage'
+import PriceTablesPage from './pages/PriceTablesPage'
+import ProfilePage from './pages/ProfilePage'
+import QuotesListPage from './pages/QuotesListPage'
+import ReportsPage from './pages/ReportsPage'
+import RequestDetailPage from './pages/RequestDetailPage'
+import RequestsPage from './pages/RequestsPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
+import ServiceTypesPage from './pages/ServiceTypesPage'
+import UsersPage from './pages/UsersPage'
+import ProposalsDashboardPage from './pages/ProposalsDashboardPage'
+import ProposalRequestsPage from './pages/ProposalRequestsPage'
+import ProposalRequestDetailPage from './pages/ProposalRequestDetailPage'
+import NewProposalRequestPage from './pages/NewProposalRequestPage'
+import ProposalPresalesQueuePage from './pages/ProposalPresalesQueuePage'
+import ProposalApprovalsPage from './pages/ProposalApprovalsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, staleTime: 30_000, refetchOnWindowFocus: false },
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+    },
   },
 })
 
+const INACTIVITY_TIMEOUT_MS = 20 * 60 * 1000
+
+function BootLoader() {
+  return (
+    <div className="min-h-screen bg-surface-50 flex items-center justify-center">
+      <div className="text-sm text-surface-500">Carregando...</div>
+    </div>
+  )
+}
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const isAuth   = useIsAuthenticated()
+  const hydrated = useAuthHydrated()
+  const isAuth = useIsAuthenticated()
   const location = useLocation()
+
+  if (!hydrated) return <BootLoader />
   if (!isAuth) return <Navigate to="/login" state={{ from: location }} replace />
+
   return <>{children}</>
 }
 
 function RequireRole({ roles, children }: { roles: string[]; children: React.ReactNode }) {
-  const role   = useRole()
+  const hydrated = useAuthHydrated()
+  const role = useRole()
   const isAuth = useIsAuthenticated()
-  // Aguarda hidratação do Zustand persist antes de avaliar permissão
+  const isProposalRole = ['COMMERCIAL', 'COMMERCIAL_MANAGER', 'PRESALES', 'PRESALES_MANAGER'].includes(role ?? '')
+  const homePath = isProposalRole ? '/proposals/dashboard' : '/dashboard'
+
+  if (!hydrated) return <BootLoader />
   if (!isAuth) return null
-  if (!role || !roles.includes(role)) return <Navigate to="/dashboard" replace />
+  if (!role || !roles.includes(role)) return <Navigate to={homePath} replace />
+
   return <>{children}</>
 }
 
 function AppRoutes() {
+  const hydrated = useAuthHydrated()
   const isAuth = useIsAuthenticated()
+  const role = useRole()
+  const logout = useAuthStore((state) => state.logout)
+  const isProposalRole = ['COMMERCIAL', 'COMMERCIAL_MANAGER', 'PRESALES', 'PRESALES_MANAGER'].includes(role ?? '')
+  const homePath = isProposalRole ? '/proposals/dashboard' : '/dashboard'
+
+  React.useEffect(() => {
+    if (!hydrated || !isAuth) return
+
+    let timeoutId: number | null = null
+
+    const resetTimer = () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+      timeoutId = window.setTimeout(() => {
+        logout()
+      }, INACTIVITY_TIMEOUT_MS)
+    }
+
+    const onActivity = () => {
+      resetTimer()
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        resetTimer()
+      }
+    }
+
+    const events: Array<keyof WindowEventMap> = [
+      'mousemove',
+      'mousedown',
+      'keydown',
+      'scroll',
+      'touchstart',
+      'click',
+    ]
+
+    events.forEach((eventName) => {
+      window.addEventListener(eventName, onActivity, { passive: true })
+    })
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    resetTimer()
+
+    return () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+      events.forEach((eventName) => {
+        window.removeEventListener(eventName, onActivity)
+      })
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [hydrated, isAuth, logout])
+
+  if (!hydrated) {
+    return <BootLoader />
+  }
+
   return (
     <Routes>
-      <Route path="/" element={isAuth ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
-      <Route path="/login" element={isAuth ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      <Route path="/" element={isAuth ? <Navigate to={homePath} replace /> : <Navigate to="/login" replace />} />
+      <Route path="/login" element={isAuth ? <Navigate to={homePath} replace /> : <LoginPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
-        {/* Comuns a todos */}
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/profile"   element={<ProfilePage />} />
-
-        {/* Solicitações */}
-        <Route path="/requests"     element={<RequestsPage />} />
-        <Route path="/requests/new" element={<NewRequestPage />} />
-        <Route path="/requests/:id" element={<RequestDetailPage />} />
-        <Route path="/requests/:requestId/quotes/:quoteId" element={<QuoteDetailPage />} />
-
-        {/* Orçamentos — lista dedicada */}
-        <Route path="/quotes" element={<QuotesListPage />} />
-
-        {/* Clientes — analista e admin */}
-        <Route path="/clients" element={
-          <RequireRole roles={['ANALYST','ADMIN']}>
-            <ClientsPage />
+        <Route path="/dashboard" element={(
+          <RequireRole roles={['CLIENT', 'ANALYST', 'ADMIN']}>
+            <DashboardPage />
           </RequireRole>
-        } />
-
-        {/* Tabela de preços — admin */}
-        <Route path="/price-tables" element={
-          <RequireRole roles={['ADMIN']}>
-            <PriceTablesPage />
+        )} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/requests" element={(
+          <RequireRole roles={['CLIENT', 'ANALYST', 'ADMIN']}>
+            <RequestsPage />
           </RequireRole>
-        } />
-
-        {/* Tipos de serviço — admin */}
-        <Route path="/service-types" element={
-          <RequireRole roles={['ADMIN']}>
-            <ServiceTypesPage />
+        )} />
+        <Route path="/requests/new" element={(
+          <RequireRole roles={['CLIENT', 'ANALYST', 'ADMIN']}>
+            <NewRequestPage />
           </RequireRole>
-        } />
-
-        {/* Relatórios — analista e admin */}
-        <Route path="/reports" element={
-          <RequireRole roles={['ANALYST','ADMIN']}>
-            <ReportsPage />
+        )} />
+        <Route path="/requests/:id" element={(
+          <RequireRole roles={['CLIENT', 'ANALYST', 'ADMIN']}>
+            <RequestDetailPage />
           </RequireRole>
-        } />
-
-        {/* Usuários — admin */}
-        <Route path="/users" element={
-          <RequireRole roles={['ADMIN']}>
-            <UsersPage />
+        )} />
+        <Route path="/quotes" element={(
+          <RequireRole roles={['CLIENT', 'ANALYST', 'ADMIN']}>
+            <QuotesListPage />
           </RequireRole>
-        } />
+        )} />
 
-        {/* Configurações — admin (placeholder mantido) */}
-        <Route path="/settings" element={
-          <RequireRole roles={['ADMIN']}>
-            <SettingsPage />
-          </RequireRole>
-        } />
+        <Route
+          path="/clients"
+          element={(
+            <RequireRole roles={['ANALYST', 'ADMIN']}>
+              <ClientsPage />
+            </RequireRole>
+          )}
+        />
 
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="/price-tables"
+          element={(
+            <RequireRole roles={['ADMIN']}>
+              <PriceTablesPage />
+            </RequireRole>
+          )}
+        />
+
+        <Route
+          path="/service-types"
+          element={(
+            <RequireRole roles={['ADMIN']}>
+              <ServiceTypesPage />
+            </RequireRole>
+          )}
+        />
+
+        <Route
+          path="/reports"
+          element={(
+            <RequireRole roles={['ANALYST', 'ADMIN']}>
+              <ReportsPage />
+            </RequireRole>
+          )}
+        />
+
+        <Route
+          path="/users"
+          element={(
+            <RequireRole roles={['ADMIN']}>
+              <UsersPage />
+            </RequireRole>
+          )}
+        />
+
+        <Route
+          path="/proposals/dashboard"
+          element={(
+            <RequireRole roles={['COMMERCIAL', 'COMMERCIAL_MANAGER', 'PRESALES', 'PRESALES_MANAGER', 'ADMIN']}>
+              <ProposalsDashboardPage />
+            </RequireRole>
+          )}
+        />
+        <Route
+          path="/proposals/requests"
+          element={(
+            <RequireRole roles={['COMMERCIAL', 'COMMERCIAL_MANAGER', 'PRESALES', 'PRESALES_MANAGER', 'ADMIN']}>
+              <ProposalRequestsPage />
+            </RequireRole>
+          )}
+        />
+        <Route
+          path="/proposals/requests/new"
+          element={(
+            <RequireRole roles={['COMMERCIAL', 'COMMERCIAL_MANAGER', 'ADMIN']}>
+              <NewProposalRequestPage />
+            </RequireRole>
+          )}
+        />
+        <Route
+          path="/proposals/requests/:id"
+          element={(
+            <RequireRole roles={['COMMERCIAL', 'COMMERCIAL_MANAGER', 'PRESALES', 'PRESALES_MANAGER', 'ADMIN']}>
+              <ProposalRequestDetailPage />
+            </RequireRole>
+          )}
+        />
+        <Route
+          path="/proposals/presales/queue"
+          element={(
+            <RequireRole roles={['PRESALES', 'PRESALES_MANAGER', 'ADMIN']}>
+              <ProposalPresalesQueuePage />
+            </RequireRole>
+          )}
+        />
+        <Route
+          path="/proposals/approvals"
+          element={(
+            <RequireRole roles={['COMMERCIAL_MANAGER', 'PRESALES_MANAGER', 'ADMIN']}>
+              <ProposalApprovalsPage />
+            </RequireRole>
+          )}
+        />
+
+        <Route path="*" element={<Navigate to={homePath} replace />} />
       </Route>
     </Routes>
-  )
-}
-
-// Configurações — placeholder simples (fora de escopo v1)
-function SettingsPage() {
-  return (
-    <div className="fade-in">
-      <div className="page-header">
-        <h1 className="font-semibold text-surface-900">Configurações</h1>
-      </div>
-      <div className="page-body max-w-lg">
-        <div className="card card-body">
-          <p className="text-sm text-surface-500 text-center py-6">
-            Configurações do sistema estarão disponíveis em versões futuras.
-          </p>
-        </div>
-      </div>
-    </div>
   )
 }
 

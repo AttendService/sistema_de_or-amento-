@@ -3,9 +3,8 @@
 // ============================================================
 import {
   useQuery, useMutation, useQueryClient,
-  type UseQueryOptions,
 } from '@tanstack/react-query'
-import { api, extractApiError } from '../lib/api'
+import { api } from '../lib/api'
 
 // ── Auth ──────────────────────────────────────────────────
 export const useMe = () =>
@@ -19,10 +18,11 @@ export const useServiceTypes = (includeInactive = false) =>
   })
 
 // ── Clients ───────────────────────────────────────────────
-export const useClients = (params?: Record<string, unknown>) =>
+export const useClients = (params?: Record<string, unknown>, options?: { enabled?: boolean }) =>
   useQuery({
     queryKey: ['clients', params],
     queryFn:  () => api.get('/api/v1/clients', { params }).then(r => r.data),
+    enabled:  options?.enabled ?? true,
   })
 
 export const useClient = (id: string) =>
@@ -31,6 +31,14 @@ export const useClient = (id: string) =>
     queryFn:  () => api.get(`/api/v1/clients/${id}`).then(r => r.data),
     enabled:  !!id,
   })
+
+export const useDeleteClient = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/v1/clients/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['clients'] }),
+  })
+}
 
 // ── Price Tables ──────────────────────────────────────────
 export const usePriceTables = (clientId: string, includeArchived = false) =>
@@ -211,9 +219,10 @@ export const useSendQuote = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ requestId, quoteId }: { requestId: string; quoteId: string }) =>
-      api.post(`/api/v1/requests/${requestId}/quotes/${quoteId}/send`).then(r => r.data),
+      api.post(`/api/v1/requests/${requestId}/quotes/${quoteId}/send`, {}).then(r => r.data),
     onSuccess: (_, { requestId, quoteId }) => {
       qc.invalidateQueries({ queryKey: ['quotes', requestId] })
+      qc.invalidateQueries({ queryKey: ['quotes', requestId, quoteId] })
       qc.invalidateQueries({ queryKey: ['requests', requestId] })
     },
   })
@@ -226,6 +235,7 @@ export const useQuoteDecision = () => {
       api.post(`/api/v1/requests/${requestId}/quotes/${quoteId}/decision`, data).then(r => r.data),
     onSuccess: (_, { requestId, quoteId }) => {
       qc.invalidateQueries({ queryKey: ['quotes', requestId] })
+      qc.invalidateQueries({ queryKey: ['quotes', requestId, quoteId] })
       qc.invalidateQueries({ queryKey: ['requests', requestId] })
       qc.invalidateQueries({ queryKey: ['requests'] })
     },
@@ -273,5 +283,202 @@ export const useUpdateUser = () => {
     mutationFn: ({ id, data }: { id: string; data: unknown }) =>
       api.patch(`/api/v1/users/${id}`, data).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  })
+}
+
+// ── Internal Proposals Module ─────────────────────────────
+export const useProposalRequests = (params?: Record<string, unknown>) =>
+  useQuery({
+    queryKey: ['proposal-requests', params],
+    queryFn: () => api.get('/api/v1/proposals/requests', { params }).then((r) => r.data),
+  })
+
+export const useProposalRequest = (id: string) =>
+  useQuery({
+    queryKey: ['proposal-requests', id],
+    queryFn: () => api.get(`/api/v1/proposals/requests/${id}`).then((r) => r.data),
+    enabled: !!id,
+  })
+
+export const useCreateProposalRequest = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: unknown) => api.post('/api/v1/proposals/requests', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['proposal-requests'] }),
+  })
+}
+
+export const useUpdateProposalRequest = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: unknown }) =>
+      api.patch(`/api/v1/proposals/requests/${id}`, data).then((r) => r.data),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['proposal-requests'] })
+      qc.invalidateQueries({ queryKey: ['proposal-requests', id] })
+    },
+  })
+}
+
+export const useSaveProposalAnswers = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: unknown }) =>
+      api.post(`/api/v1/proposals/requests/${id}/answers`, data).then((r) => r.data),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['proposal-requests', id] })
+      qc.invalidateQueries({ queryKey: ['proposal-answers', id] })
+      qc.invalidateQueries({ queryKey: ['proposal-wizard-summary', id] })
+      qc.invalidateQueries({ queryKey: ['proposal-wizard-sections', id] })
+      qc.invalidateQueries({ queryKey: ['proposal-answer-versions', id] })
+    },
+  })
+}
+
+export const useSubmitProposalRequest = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/api/v1/proposals/requests/${id}/submit`, {}).then((r) => r.data),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: ['proposal-requests'] })
+      qc.invalidateQueries({ queryKey: ['proposal-requests', id] })
+    },
+  })
+}
+
+export const usePresalesQueue = () =>
+  useQuery({
+    queryKey: ['proposal-presales-queue'],
+    queryFn: () => api.get('/api/v1/proposals/presales/queue').then((r) => r.data),
+  })
+
+export const useCreatePresalesReview = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: unknown }) =>
+      api.post(`/api/v1/proposals/requests/${id}/presales/review`, data).then((r) => r.data),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['proposal-presales-queue'] })
+      qc.invalidateQueries({ queryKey: ['proposal-requests'] })
+      qc.invalidateQueries({ queryKey: ['proposal-requests', id] })
+    },
+  })
+}
+
+export const useProposalWizardSummary = (id: string) =>
+  useQuery({
+    queryKey: ['proposal-wizard-summary', id],
+    queryFn: () => api.get(`/api/v1/proposals/requests/${id}/wizard/summary`).then((r) => r.data),
+    enabled: !!id,
+  })
+
+export const useProposalWizardTemplate = () =>
+  useQuery({
+    queryKey: ['proposal-wizard-template'],
+    queryFn: () => api.get('/api/v1/proposals/wizard/template').then((r) => r.data),
+  })
+
+export const useProposalWizardSections = (id: string) =>
+  useQuery({
+    queryKey: ['proposal-wizard-sections', id],
+    queryFn: () => api.get(`/api/v1/proposals/requests/${id}/wizard/sections`).then((r) => r.data),
+    enabled: !!id,
+  })
+
+export const useProposalAnswerVersions = (id: string) =>
+  useQuery({
+    queryKey: ['proposal-answer-versions', id],
+    queryFn: () => api.get(`/api/v1/proposals/requests/${id}/answers/versions`).then((r) => r.data),
+    enabled: !!id,
+  })
+
+export const useProposalAnswers = (id: string) =>
+  useQuery({
+    queryKey: ['proposal-answers', id],
+    queryFn: () => api.get(`/api/v1/proposals/requests/${id}/answers`).then((r) => r.data),
+    enabled: !!id,
+  })
+
+export const useProposalPendings = (id: string) =>
+  useQuery({
+    queryKey: ['proposal-pendings', id],
+    queryFn: () => api.get(`/api/v1/proposals/requests/${id}/pendings`).then((r) => r.data),
+    enabled: !!id,
+  })
+
+export const useCreateProposalPending = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: unknown }) =>
+      api.post(`/api/v1/proposals/requests/${id}/pendings`, data).then((r) => r.data),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['proposal-pendings', id] })
+      qc.invalidateQueries({ queryKey: ['proposal-requests', id] })
+      qc.invalidateQueries({ queryKey: ['proposal-wizard-summary', id] })
+    },
+  })
+}
+
+export const useResolveProposalPending = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, pendingId, data }: { id: string; pendingId: string; data?: unknown }) =>
+      api.post(`/api/v1/proposals/requests/${id}/pendings/${pendingId}/resolve`, data ?? {}).then((r) => r.data),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['proposal-pendings', id] })
+      qc.invalidateQueries({ queryKey: ['proposal-requests', id] })
+      qc.invalidateQueries({ queryKey: ['proposal-wizard-summary', id] })
+    },
+  })
+}
+
+export const useRecalculateProposalComposition = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/api/v1/proposals/requests/${id}/composition/recalculate`, {}).then((r) => r.data),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: ['proposal-requests', id] })
+    },
+  })
+}
+
+export const useProposalApprovals = (params?: Record<string, unknown>) =>
+  useQuery({
+    queryKey: ['proposal-approvals', params],
+    queryFn: () => api.get('/api/v1/proposals/approvals', { params }).then((r) => r.data),
+  })
+
+export const useDecideProposalApproval = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ approvalId, data }: { approvalId: string; data: unknown }) =>
+      api.post(`/api/v1/proposals/approvals/${approvalId}/decision`, data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['proposal-approvals'] })
+      qc.invalidateQueries({ queryKey: ['proposal-requests'] })
+    },
+  })
+}
+
+export const useRecalculateProposalPricing = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/api/v1/proposals/requests/${id}/pricing/recalculate`, {}).then((r) => r.data),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: ['proposal-requests', id] })
+      qc.invalidateQueries({ queryKey: ['proposal-requests'] })
+      qc.invalidateQueries({ queryKey: ['proposal-approvals'] })
+    },
+  })
+}
+
+export const useGenerateProposal = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/api/v1/proposals/requests/${id}/proposals/generate`, {}).then((r) => r.data),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: ['proposal-requests', id] })
+      qc.invalidateQueries({ queryKey: ['proposal-requests'] })
+    },
   })
 }

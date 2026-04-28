@@ -2,16 +2,13 @@
 // Relatórios — exportações e resumos analíticos
 // ============================================================
 import React, { useState } from 'react'
-import { Download, Filter, BarChart2, FileText, DollarSign, Clock } from 'lucide-react'
+import { Download, Filter, BarChart2, FileText, DollarSign } from 'lucide-react'
 import { useRequests, useClients, useServiceTypes } from '../hooks/queries'
-import { useRole } from '../store/auth.store'
 import { PageLoader, FormField, Alert } from '../components/ui'
 import { formatCurrency, formatDateTime, REQUEST_STATUS_LABEL, type RequestStatus } from '../lib/constants'
 import { api, extractApiError } from '../lib/api'
 
 export default function ReportsPage() {
-  const role = useRole()
-
   const [filters, setFilters] = useState({
     from:          '',
     to:            '',
@@ -104,7 +101,6 @@ export default function ReportsPage() {
 
   // ── Métricas do preview ───────────────────────────────────
   const approved   = requests.filter((r: any) => r.status === 'APPROVED').length
-  const rejected   = requests.filter((r: any) => r.status === 'REJECTED').length
   const totalValue = requests.reduce((acc: number, r: any) => {
     const q = r.quotes?.[0]
     return acc + (q?.totalValue ?? 0)

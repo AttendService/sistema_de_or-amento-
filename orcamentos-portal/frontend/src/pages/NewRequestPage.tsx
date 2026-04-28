@@ -1,370 +1,457 @@
 // ============================================================
-// Nova Solicitação — formulário completo
+// Nova Solicitação — layout compacto 2 colunas
 // ============================================================
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ChevronLeft, ChevronRight, Check, MapPin, User, Briefcase, Wrench, Send } from 'lucide-react'
+import {
+  ChevronLeft, Check, Send, User, Building2, MapPin, Wrench, Zap,
+} from 'lucide-react'
 import { useCreateRequest, useServiceTypes, useClients } from '../hooks/queries'
 import { useAuthStore, useRole } from '../store/auth.store'
 import { Alert, FormField, Spinner } from '../components/ui'
 import { extractApiError } from '../lib/api'
 
+// ── Zod schema ──────────────────────────────────────────────
+const uuidLike = z.string().regex(
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+  'Selecione um cliente',
+)
+const optionalStr = z.preprocess(
+  v => (v === '' || v === null || v === undefined ? undefined : v),
+  z.string().max(500).optional(),
+)
+const optionalDate = z.preprocess(
+  v => (v === '' ? undefined : v),
+  z.string().date().optional(),
+)
+const optionalLatitude = z.preprocess(
+  v => (v === '' || v === null || v === undefined ? null : Number(v)),
+  z.number().min(-90).max(90).optional().nullable(),
+)
+const optionalLongitude = z.preprocess(
+  v => (v === '' || v === null || v === undefined ? null : Number(v)),
+  z.number().min(-180).max(180).optional().nullable(),
+)
+
 const schema = z.object({
-  clientId:            z.string().uuid('Selecione um cliente'),
-  requesterName:       z.string().min(2, 'Nome obrigatório'),
+  clientId:            uuidLike,
+  requesterName:       z.string().min(2, 'Obrigatório'),
   requesterEmail:      z.string().email('E-mail inválido'),
-  requesterPhone:      z.string().optional(),
-  finalClientName:     z.string().min(2, 'Nome do cliente final obrigatório'),
-  finalClientCompany:  z.string().optional(),
-  finalClientDocument: z.string().optional(),
-  finalClientContact:  z.string().optional(),
-  finalClientPhone:    z.string().optional(),
-  zipCode:             z.string().optional(),
-  street:              z.string().optional(),
-  streetNumber:        z.string().optional(),
-  complement:          z.string().optional(),
-  neighborhood:        z.string().optional(),
-  city:                z.string().optional(),
-  state:               z.string().max(2).optional(),
-  reference:           z.string().optional(),
-  latitude:            z.coerce.number().optional().nullable(),
-  longitude:           z.coerce.number().optional().nullable(),
-  serviceTypeIds:      z.array(z.string().uuid()).min(1, 'Selecione pelo menos um tipo'),
-  description:         z.string().optional(),
-  observations:        z.string().optional(),
-  requestedDate:       z.string().optional(),
+  requesterPhone:      optionalStr,
+  finalClientName:     z.string().min(2, 'Obrigatório'),
+  finalClientCompany:  optionalStr,
+  finalClientDocument: optionalStr,
+  finalClientContact:  optionalStr,
+  finalClientPhone:    optionalStr,
+  zipCode:             optionalStr,
+  street:              optionalStr,
+  streetNumber:        optionalStr,
+  complement:          optionalStr,
+  neighborhood:        optionalStr,
+  city:                optionalStr,
+  state:               z.preprocess(
+    v => (v === '' || v === null || v === undefined ? undefined : String(v).toUpperCase().slice(0, 2)),
+    z.string().length(2).optional(),
+  ),
+  reference:           optionalStr,
+  latitude:            optionalLatitude,
+  longitude:           optionalLongitude,
+  serviceTypeIds:      z.array(uuidLike).min(1, 'Selecione pelo menos um tipo de serviço'),
+  technology:          optionalStr,
+  description:         optionalStr,
+  observations:        optionalStr,
+  requestedDate:       optionalDate,
   isUrgent:            z.boolean().default(false),
 })
 
-type FormData = z.input<typeof schema>
+type FormData  = z.infer<typeof schema>
+type FormInput = z.input<typeof schema>
 
-const STEPS = [
-  { id: 1, label: 'Solicitante',   icon: <User     size={14} /> },
-  { id: 2, label: 'Cliente final', icon: <Briefcase size={14} /> },
-  { id: 3, label: 'Localidade',    icon: <MapPin   size={14} /> },
-  { id: 4, label: 'Serviço',       icon: <Wrench   size={14} /> },
-]
+// ── Section label ────────────────────────────────────────────
+function SectionLabel({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <div className="flex items-center gap-2 px-4 py-2.5 border-b border-surface-100 bg-surface-50/60">
+      <span className="text-brand-500">{icon}</span>
+      <span className="text-[11px] font-bold text-surface-500 uppercase tracking-widest">{title}</span>
+    </div>
+  )
+}
 
+// ── Compact form field ───────────────────────────────────────
+function Field({
+  label, required, error, hint, children,
+}: {
+  label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-surface-600 mb-1">
+        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+      </label>
+      {children}
+      {error && <p className="mt-0.5 text-[11px] text-red-500">{error}</p>}
+      {!error && hint && <p className="mt-0.5 text-[11px] text-surface-400">{hint}</p>}
+    </div>
+  )
+}
+
+const inputCls = (err?: string) =>
+  `w-full rounded-md border text-sm px-3 py-1.5 bg-surface-0 placeholder:text-surface-300
+   focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-200 transition-all
+   ${err ? 'border-red-400 focus:border-red-400 focus:ring-red-500/20' : 'border-surface-200'}`
+
+// ── Main component ───────────────────────────────────────────
 export default function NewRequestPage() {
-  const navigate  = useNavigate()
-  const role      = useRole()
-  const user      = useAuthStore(s => s.user)
-  const [step, setStep]     = useState(1)
+  const navigate = useNavigate()
+  const role     = useRole()
+  const user     = useAuthStore(s => s.user)
   const [apiError, setApiError] = useState('')
 
   const createRequest = useCreateRequest()
-  const { data: serviceTypes = [] } = useServiceTypes()
-  const { data: clientsData }       = useClients({ limit: 100 })
-  const clients = clientsData?.data ?? []
+  const { data: serviceTypesData } = useServiceTypes()
+  const serviceTypes = serviceTypesData ?? []
+
+  const { data: clientsData } = useClients(undefined, { enabled: role !== 'CLIENT' })
+  const clients = clientsData?.data ?? clientsData ?? []
+
+  const defaultClientId = user?.defaultClientId ?? user?.clientIds?.[0] ?? user?.clients?.[0]?.id ?? ''
+  const missingClientLink = role === 'CLIENT' && !defaultClientId
 
   const {
-    register, handleSubmit, control, watch, trigger,
+    register, handleSubmit, control, setValue,
     formState: { errors },
-  } = useForm<FormData>({
+  } = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      clientId:       user?.defaultClientId ?? '',
+      clientId:       defaultClientId,
       requesterName:  user?.name  ?? '',
       requesterEmail: user?.email ?? '',
-      isUrgent: false,
+      isUrgent:       false,
       serviceTypeIds: [],
     },
   })
 
-  const watchedServiceTypeIds = watch('serviceTypeIds') ?? []
-
-  const STEP_FIELDS: Record<number, (keyof FormData)[]> = {
-    1: ['clientId', 'requesterName', 'requesterEmail'],
-    2: ['finalClientName'],
-    3: [],
-    4: ['serviceTypeIds'],
-  }
-
-  const next = async () => {
-    const valid = await trigger(STEP_FIELDS[step])
-    if (valid) setStep(s => Math.min(4, s + 1))
-  }
-  const prev = () => setStep(s => Math.max(1, s - 1))
+  useEffect(() => {
+    if (role === 'CLIENT' && defaultClientId) {
+      setValue('clientId', defaultClientId, { shouldValidate: true })
+    }
+  }, [defaultClientId, role, setValue])
 
   const onSubmit = async (data: FormData) => {
     setApiError('')
     try {
-      const result = await createRequest.mutateAsync(data)
+      const payload = { ...data }
+      if (payload.technology) {
+        payload.description = `[Tecnologia: ${payload.technology}]\n\n${payload.description || ''}`
+      }
+      // Remove o campo technology para não causar erro no backend
+      delete (payload as any).technology
+
+      const result = await createRequest.mutateAsync(payload)
       navigate(`/requests/${result.id}`)
     } catch (err) {
       setApiError(extractApiError(err))
-      setStep(1)
     }
   }
 
-  const toggleServiceType = (id: string, current: string[], onChange: (v: string[]) => void) => {
-    if (current.includes(id)) onChange(current.filter(x => x !== id))
-    else onChange([...current, id])
-  }
+  const toggle = (id: string, cur: string[], onChange: (v: string[]) => void) =>
+    onChange(cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id])
 
   return (
     <div className="fade-in">
+
+      {/* ── Sticky header ──────────────────────────────── */}
       <div className="page-header">
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate(-1)} className="btn-ghost p-1.5">
+          <button type="button" onClick={() => navigate(-1)} className="btn-ghost p-1.5 -ml-1">
             <ChevronLeft size={16} />
           </button>
-          <h1 className="font-semibold text-surface-900">Nova solicitação</h1>
+          <div>
+            <h1 className="font-semibold text-surface-900 text-base">Nova solicitação</h1>
+            <p className="text-[11px] text-surface-400">Campos marcados com * são obrigatórios</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => navigate(-1)} className="btn-ghost btn-sm">
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="new-request-form"
+            className="btn-primary btn-sm px-5"
+            disabled={createRequest.isPending || missingClientLink}
+          >
+            {createRequest.isPending ? <Spinner size="sm" /> : <Send size={13} />}
+            {createRequest.isPending ? 'Enviando...' : 'Enviar solicitação'}
+          </button>
         </div>
       </div>
 
-      <div className="page-body max-w-2xl mx-auto">
-        {/* Stepper */}
-        <div className="flex items-center justify-between mb-8">
-          {STEPS.map((s, i) => (
-            <React.Fragment key={s.id}>
-              <div className="flex flex-col items-center gap-1">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all
-                  ${step > s.id  ? 'bg-emerald-500 text-white'
-                  : step === s.id ? 'bg-brand-500 text-white shadow-glow'
-                  : 'bg-surface-100 text-surface-400'}`}>
-                  {step > s.id ? <Check size={14} /> : s.icon}
-                </div>
-                <span className={`text-xs font-medium hidden sm:block
-                  ${step === s.id ? 'text-brand-600' : 'text-surface-400'}`}>
-                  {s.label}
-                </span>
-              </div>
-              {i < STEPS.length - 1 && (
-                <div className={`flex-1 h-px mx-2 transition-all ${step > s.id ? 'bg-emerald-300' : 'bg-surface-200'}`} />
-              )}
-            </React.Fragment>
-          ))}
-        </div>
+      {/* ── Body ───────────────────────────────────────── */}
+      <div className="page-body">
 
-        <form onSubmit={handleSubmit(onSubmit)}>
-          {apiError && <Alert type="error" message={apiError} />}
+        {/* Alerts */}
+        {apiError && <div className="mb-4"><Alert type="error" message={apiError} /></div>}
+        {missingClientLink && (
+          <div className="mb-4">
+            <Alert type="error" message="Seu usuário não está vinculado a um cliente. Contate o administrador." />
+          </div>
+        )}
 
-          {/* Step 1 — Dados do solicitante */}
-          {step === 1 && (
-            <div className="card fade-in">
-              <div className="card-header">
-                <span className="text-sm font-semibold">Dados do solicitante</span>
-              </div>
-              <div className="card-body space-y-4">
-                {(role === 'ANALYST' || role === 'ADMIN') && (
-                  <FormField label="Cliente" required error={errors.clientId?.message}>
-                    <select {...register('clientId')} className="form-input appearance-none">
-                      <option value="">Selecione o cliente</option>
-                      {clients.map((c: any) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </FormField>
-                )}
-                {role === 'CLIENT' && user?.clients && user.clients.length > 1 && (
-                  <FormField label="Cliente" required error={errors.clientId?.message}>
-                    <select {...register('clientId')} className="form-input appearance-none">
-                      {user.clients.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </FormField>
-                )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField label="Nome do solicitante" required error={errors.requesterName?.message}>
-                    <input {...register('requesterName')} className={`form-input ${errors.requesterName ? 'error' : ''}`} placeholder="Seu nome completo" />
-                  </FormField>
-                  <FormField label="E-mail" required error={errors.requesterEmail?.message}>
-                    <input {...register('requesterEmail')} type="email" className={`form-input ${errors.requesterEmail ? 'error' : ''}`} placeholder="seu@email.com" />
-                  </FormField>
+        <form id="new-request-form" onSubmit={handleSubmit(onSubmit)}>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+
+            {/* ══ Coluna Esquerda ══════════════════ */}
+            <div className="space-y-4">
+
+              {/* Solicitante */}
+              <div className="card overflow-hidden">
+                <SectionLabel icon={<User size={13} />} title="Dados do solicitante" />
+                <div className="p-4 space-y-3">
+
+                  {/* Seletor cliente (ANALYST/ADMIN) */}
+                  {(role === 'ANALYST' || role === 'ADMIN') && (
+                    <Field label="Empresa / Cliente" required error={errors.clientId?.message}>
+                      <select {...register('clientId')} className={inputCls(errors.clientId?.message)}>
+                        <option value="">Selecione...</option>
+                        {clients.map((c: any) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </Field>
+                  )}
+                  {role === 'CLIENT' && user?.clients && user.clients.length > 1 && (
+                    <Field label="Empresa" required error={errors.clientId?.message}>
+                      <select {...register('clientId')} className={inputCls(errors.clientId?.message)}>
+                        {user.clients.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </Field>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Nome completo" required error={errors.requesterName?.message}>
+                      <input {...register('requesterName')} className={inputCls(errors.requesterName?.message)} placeholder="Seu nome" />
+                    </Field>
+                    <Field label="E-mail" required error={errors.requesterEmail?.message}>
+                      <input {...register('requesterEmail')} type="email" className={inputCls(errors.requesterEmail?.message)} placeholder="seu@email.com" />
+                    </Field>
+                  </div>
+                  <Field label="Telefone / WhatsApp">
+                    <input {...register('requesterPhone')} className={inputCls()} placeholder="(11) 99999-9999" />
+                  </Field>
                 </div>
-                <FormField label="Telefone" error={errors.requesterPhone?.message}>
-                  <input {...register('requesterPhone')} className="form-input" placeholder="(11) 99999-9999" />
-                </FormField>
               </div>
+
+              {/* Cliente final */}
+              <div className="card overflow-hidden">
+                <SectionLabel icon={<Building2 size={13} />} title="Cliente final" />
+                <div className="p-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Nome" required error={errors.finalClientName?.message}>
+                      <input {...register('finalClientName')} className={inputCls(errors.finalClientName?.message)} placeholder="Nome completo" />
+                    </Field>
+                    <Field label="Empresa">
+                      <input {...register('finalClientCompany')} className={inputCls()} placeholder="Razão social" />
+                    </Field>
+                    <Field label="CPF / CNPJ">
+                      <input {...register('finalClientDocument')} className={inputCls()} placeholder="000.000.000-00" />
+                    </Field>
+                    <Field label="Contato local">
+                      <input {...register('finalClientContact')} className={inputCls()} placeholder="Nome do responsável" />
+                    </Field>
+                  </div>
+                  <Field label="Telefone local">
+                    <input {...register('finalClientPhone')} className={inputCls()} placeholder="(11) 99999-9999" />
+                  </Field>
+                </div>
+              </div>
+
+              {/* Localidade */}
+              <div className="card overflow-hidden">
+                <SectionLabel icon={<MapPin size={13} />} title="Localidade" />
+                <div className="p-4 space-y-3">
+                  <div className="grid grid-cols-4 gap-2">
+                    <div className="col-span-1">
+                      <Field label="CEP">
+                        <input {...register('zipCode')} className={inputCls()} placeholder="00000-000" />
+                      </Field>
+                    </div>
+                    <div className="col-span-3">
+                      <Field label="Endereço">
+                        <input {...register('street')} className={inputCls()} placeholder="Rua, avenida, estrada..." />
+                      </Field>
+                    </div>
+                    <div className="col-span-1">
+                      <Field label="Número">
+                        <input {...register('streetNumber')} className={inputCls()} placeholder="123" />
+                      </Field>
+                    </div>
+                    <div className="col-span-3">
+                      <Field label="Complemento">
+                        <input {...register('complement')} className={inputCls()} placeholder="Apto, sala, bloco..." />
+                      </Field>
+                    </div>
+                    <div className="col-span-2">
+                      <Field label="Bairro">
+                        <input {...register('neighborhood')} className={inputCls()} />
+                      </Field>
+                    </div>
+                    <div className="col-span-1">
+                      <Field label="Cidade">
+                        <input {...register('city')} className={inputCls()} />
+                      </Field>
+                    </div>
+                    <div className="col-span-1">
+                      <Field label="UF">
+                        <input {...register('state')} className={inputCls()} maxLength={2} placeholder="SP" />
+                      </Field>
+                    </div>
+                  </div>
+                  <Field label="Ponto de referência">
+                    <input {...register('reference')} className={inputCls()} placeholder="Próximo ao..." />
+                  </Field>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Latitude" hint="Opcional" error={errors.latitude?.message}>
+                      <input {...register('latitude')} type="number" step="any" className={`${inputCls(errors.latitude?.message)} font-mono`} placeholder="-23.5505" />
+                    </Field>
+                    <Field label="Longitude" hint="Opcional" error={errors.longitude?.message}>
+                      <input {...register('longitude')} type="number" step="any" className={`${inputCls(errors.longitude?.message)} font-mono`} placeholder="-46.6333" />
+                    </Field>
+                  </div>
+                </div>
+              </div>
+
             </div>
-          )}
 
-          {/* Step 2 — Cliente final */}
-          {step === 2 && (
-            <div className="card fade-in">
-              <div className="card-header">
-                <span className="text-sm font-semibold">Dados do cliente final</span>
-              </div>
-              <div className="card-body space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField label="Nome do cliente final" required error={errors.finalClientName?.message}>
-                    <input {...register('finalClientName')} className={`form-input ${errors.finalClientName ? 'error' : ''}`} placeholder="Nome completo" />
-                  </FormField>
-                  <FormField label="Empresa" error={errors.finalClientCompany?.message}>
-                    <input {...register('finalClientCompany')} className="form-input" placeholder="Razão social" />
-                  </FormField>
-                  <FormField label="Documento" error={errors.finalClientDocument?.message}>
-                    <input {...register('finalClientDocument')} className="form-input" placeholder="CPF ou CNPJ" />
-                  </FormField>
-                  <FormField label="Contato local" error={errors.finalClientContact?.message}>
-                    <input {...register('finalClientContact')} className="form-input" placeholder="Nome do contato no local" />
-                  </FormField>
-                  <FormField label="Telefone local" error={errors.finalClientPhone?.message}>
-                    <input {...register('finalClientPhone')} className="form-input" placeholder="(11) 99999-9999" />
-                  </FormField>
-                </div>
-              </div>
-            </div>
-          )}
+            {/* ══ Coluna Direita ═══════════════════ */}
+            <div>
+              <div className="card overflow-hidden">
+                <SectionLabel icon={<Wrench size={13} />} title="Serviço solicitado" />
+                <div className="p-4 space-y-4">
 
-          {/* Step 3 — Localidade */}
-          {step === 3 && (
-            <div className="card fade-in">
-              <div className="card-header">
-                <span className="text-sm font-semibold">Dados da localidade</span>
-              </div>
-              <div className="card-body space-y-4">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="col-span-2 sm:col-span-1">
-                    <FormField label="CEP">
-                      <input {...register('zipCode')} className="form-input" placeholder="00000-000" />
-                    </FormField>
-                  </div>
-                  <div className="col-span-2 sm:col-span-3">
-                    <FormField label="Endereço">
-                      <input {...register('street')} className="form-input" placeholder="Rua, avenida..." />
-                    </FormField>
-                  </div>
-                  <div>
-                    <FormField label="Número">
-                      <input {...register('streetNumber')} className="form-input" placeholder="123" />
-                    </FormField>
-                  </div>
-                  <div className="col-span-3">
-                    <FormField label="Complemento">
-                      <input {...register('complement')} className="form-input" placeholder="Apto, sala, bloco..." />
-                    </FormField>
-                  </div>
-                  <div className="col-span-2">
-                    <FormField label="Bairro">
-                      <input {...register('neighborhood')} className="form-input" />
-                    </FormField>
-                  </div>
-                  <div className="col-span-2 sm:col-span-1">
-                    <FormField label="Cidade">
-                      <input {...register('city')} className="form-input" />
-                    </FormField>
-                  </div>
-                  <div>
-                    <FormField label="Estado (UF)">
-                      <input {...register('state')} className="form-input" maxLength={2} placeholder="SP" />
-                    </FormField>
-                  </div>
-                </div>
-                <FormField label="Referência / Ponto de referência">
-                  <textarea {...register('reference')} rows={2} className="form-input resize-none" placeholder="Próximo ao..." />
-                </FormField>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField label="Latitude" hint="Coordenada geográfica">
-                    <input {...register('latitude')} type="number" step="any" className="form-input font-mono text-sm" placeholder="-23.5505" />
-                  </FormField>
-                  <FormField label="Longitude" hint="Coordenada geográfica">
-                    <input {...register('longitude')} type="number" step="any" className="form-input font-mono text-sm" placeholder="-46.6333" />
-                  </FormField>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 4 — Serviço */}
-          {step === 4 && (
-            <div className="card fade-in">
-              <div className="card-header">
-                <span className="text-sm font-semibold">Dados do serviço</span>
-              </div>
-              <div className="card-body space-y-5">
-                <FormField label="Tipos de serviço" required error={errors.serviceTypeIds?.message}>
-                  <Controller
-                    name="serviceTypeIds"
-                    control={control}
-                    render={({ field }) => (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1">
-                        {serviceTypes.map((st: any) => {
-                          const selected = field.value?.includes(st.id)
-                          return (
-                            <button
-                              key={st.id}
-                              type="button"
-                              onClick={() => toggleServiceType(st.id, field.value ?? [], field.onChange)}
-                              className={`text-left px-3 py-2.5 rounded border text-sm font-medium transition-all
-                                ${selected
-                                  ? 'bg-brand-50 border-brand-400 text-brand-700'
-                                  : 'bg-white border-surface-200 text-surface-600 hover:border-surface-300'}`}
+                  {/* Tipos de serviço e Tecnologia */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-surface-600 mb-2">
+                        Tipo de serviço<span className="text-red-400 ml-0.5">*</span>
+                      </label>
+                      <Controller
+                        name="serviceTypeIds"
+                        control={control}
+                        render={({ field }) => (
+                          <>
+                            <select
+                              value={field.value?.[0] || ''}
+                              onChange={(e) => field.onChange(e.target.value ? [e.target.value] : [])}
+                              className={inputCls(errors.serviceTypeIds?.message)}
                             >
-                              {selected && <Check size={12} className="inline mr-1 text-brand-500" />}
-                              {st.name}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-                  />
-                </FormField>
+                              <option value="">Selecione...</option>
+                              {serviceTypes.map((st: any) => (
+                                <option key={st.id} value={st.id}>
+                                  {st.name}
+                                </option>
+                              ))}
+                            </select>
+                            {errors.serviceTypeIds?.message && (
+                              <p className="mt-1.5 text-[11px] text-red-500">{errors.serviceTypeIds.message}</p>
+                            )}
+                          </>
+                        )}
+                      />
+                    </div>
 
-                <FormField label="Descrição detalhada da necessidade">
-                  <textarea {...register('description')} rows={4} className="form-input resize-none"
-                    placeholder="Descreva com detalhes o que precisa ser feito..." />
-                </FormField>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField label="Data prevista para execução">
-                    <input {...register('requestedDate')} type="date" className="form-input" />
-                  </FormField>
-                  <FormField label="Urgência">
-                    <Controller
-                      name="isUrgent"
-                      control={control}
-                      render={({ field }) => (
-                        <button
-                          type="button"
-                          onClick={() => field.onChange(!field.value)}
-                          className={`w-full flex items-center gap-2 px-3 py-2 rounded border text-sm font-medium transition-all
-                            ${field.value
-                              ? 'bg-amber-50 border-amber-400 text-amber-700'
-                              : 'bg-white border-surface-200 text-surface-600 hover:border-surface-300'}`}
-                        >
-                          <span className="text-lg">⚡</span>
-                          {field.value ? 'Marcado como urgente' : 'Marcar como urgente'}
-                        </button>
+                    <div>
+                      <label className="block text-xs font-medium text-surface-600 mb-2">
+                        Tecnologia
+                      </label>
+                      <select
+                        {...register('technology')}
+                        className={inputCls(errors.technology?.message)}
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="Starlink">Starlink</option>
+                        <option value="Vsat">Vsat</option>
+                        <option value="Roteador">Roteador</option>
+                        <option value="Sdwan">Sdwan</option>
+                        <option value="Outros">Outros</option>
+                      </select>
+                      {errors.technology?.message && (
+                        <p className="mt-1.5 text-[11px] text-red-500">{errors.technology.message}</p>
                       )}
-                    />
-                  </FormField>
-                </div>
+                    </div>
+                  </div>
 
-                <FormField label="Observações adicionais">
-                  <textarea {...register('observations')} rows={3} className="form-input resize-none"
-                    placeholder="Informações complementares..." />
-                </FormField>
+                  {/* Descrição */}
+                  <Field label="Descrição detalhada da necessidade">
+                    <textarea
+                      {...register('description')}
+                      rows={4}
+                      className={`${inputCls()} resize-none`}
+                      placeholder="Descreva com detalhes o que precisa ser feito, condições do local, equipamentos envolvidos..."
+                    />
+                  </Field>
+
+                  {/* Data + Urgência */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Data prevista para execução">
+                      <input {...register('requestedDate')} type="date" className={inputCls()} />
+                    </Field>
+                    <Field label="Marcação de urgência">
+                      <Controller
+                        name="isUrgent"
+                        control={control}
+                        render={({ field }) => (
+                          <button
+                            type="button"
+                            onClick={() => field.onChange(!field.value)}
+                            className={`w-full h-[34px] flex items-center justify-center gap-1.5 rounded-md border text-xs font-semibold transition-all duration-150
+                              ${field.value
+                                ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
+                                : 'bg-white border-surface-200 text-surface-500 hover:border-amber-300 hover:bg-amber-50'
+                              }`}
+                          >
+                            <Zap size={12} />
+                            {field.value ? 'Marcado como urgente' : 'Marcar como urgente'}
+                          </button>
+                        )}
+                      />
+                    </Field>
+                  </div>
+
+                  {/* Observações */}
+                  <Field label="Observações adicionais">
+                    <textarea
+                      {...register('observations')}
+                      rows={3}
+                      className={`${inputCls()} resize-none`}
+                      placeholder="Restrições de acesso, janelas de manutenção, informações complementares..."
+                    />
+                  </Field>
+
+                  {/* Divider + CTAs inline no card */}
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-surface-100">
+                    <button type="button" onClick={() => navigate(-1)} className="btn-ghost btn-sm">
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn-primary btn-sm px-6"
+                      disabled={createRequest.isPending || missingClientLink}
+                    >
+                      {createRequest.isPending ? <Spinner size="sm" /> : <Send size={13} />}
+                      {createRequest.isPending ? 'Enviando...' : 'Enviar solicitação'}
+                    </button>
+                  </div>
+
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Botões de navegação */}
-          <div className="flex items-center justify-between mt-6">
-            <button type="button" onClick={prev} disabled={step === 1}
-              className="btn-secondary disabled:opacity-0">
-              <ChevronLeft size={16} /> Anterior
-            </button>
-
-            {step < 4
-              ? (
-                <button type="button" onClick={next} className="btn-primary">
-                  Próximo <ChevronRight size={16} />
-                </button>
-              )
-              : (
-                <button type="submit" className="btn-primary"
-                  disabled={createRequest.isPending}>
-                  {createRequest.isPending ? <Spinner size="sm" /> : <Send size={16} />}
-                  {createRequest.isPending ? 'Enviando...' : 'Enviar solicitação'}
-                </button>
-              )
-            }
           </div>
         </form>
       </div>

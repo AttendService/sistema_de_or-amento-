@@ -10,10 +10,15 @@ import { NotFoundError, ForbiddenError } from '../../shared/errors/index.js'
 import { logAudit } from '../../shared/utils/index.js'
 import type { JwtPayload } from '../../shared/types/index.js'
 
+const IdSchema = z.string().regex(
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+  'ID inválido.',
+)
+
 // ── Schemas ───────────────────────────────────────────────
 const TableParamsSchema = z.object({
-  clientId: z.string().uuid(),
-  tableId:  z.string().uuid().optional(),
+  clientId: IdSchema,
+  tableId:  IdSchema.optional(),
 })
 
 const CreateTableSchema = z.object({
@@ -28,7 +33,7 @@ const UpdateTableSchema = CreateTableSchema.partial().extend({
 })
 
 const CreateItemSchema = z.object({
-  serviceTypeId: z.string().uuid().optional().nullable(),
+  serviceTypeId: IdSchema.optional().nullable(),
   code:          z.string().min(1).max(50),
   description:   z.string().min(1).max(500),
   unit:          z.string().min(1).max(30),
@@ -42,9 +47,9 @@ const UpdateItemSchema = CreateItemSchema.partial().extend({
 })
 
 const ItemParamsSchema = z.object({
-  clientId: z.string().uuid(),
-  tableId:  z.string().uuid(),
-  itemId:   z.string().uuid().optional(),
+  clientId: IdSchema,
+  tableId:  IdSchema,
+  itemId:   IdSchema.optional(),
 })
 
 // ── Routes ────────────────────────────────────────────────
@@ -79,11 +84,11 @@ export async function priceTableRoutes(app: FastifyInstance) {
   // GET /clients/:clientId/price-tables/:tableId
   app.get('/clients/:clientId/price-tables/:tableId', { preHandler: analystAdmin }, async (req, reply) => {
     const { clientId, tableId } = z.object({
-      clientId: z.string().uuid(), tableId: z.string().uuid(),
+      clientId: IdSchema, tableId: IdSchema,
     }).parse(req.params)
 
     const { serviceTypeId, q, includeInactive } = z.object({
-      serviceTypeId:  z.string().uuid().optional(),
+      serviceTypeId:  IdSchema.optional(),
       q:              z.string().optional(),
       includeInactive: z.coerce.boolean().optional().default(false),
     }).parse(req.query)
@@ -157,7 +162,7 @@ export async function priceTableRoutes(app: FastifyInstance) {
   // PATCH /clients/:clientId/price-tables/:tableId
   app.patch('/clients/:clientId/price-tables/:tableId', { preHandler: adminOnly }, async (req, reply) => {
     const { clientId, tableId } = z.object({
-      clientId: z.string().uuid(), tableId: z.string().uuid(),
+      clientId: IdSchema, tableId: IdSchema,
     }).parse(req.params)
 
     const result = UpdateTableSchema.safeParse(req.body)
@@ -193,7 +198,7 @@ export async function priceTableRoutes(app: FastifyInstance) {
   // DELETE /clients/:clientId/price-tables/:tableId
   app.delete('/clients/:clientId/price-tables/:tableId', { preHandler: adminOnly }, async (req, reply) => {
     const { clientId, tableId } = z.object({
-      clientId: z.string().uuid(), tableId: z.string().uuid(),
+      clientId: IdSchema, tableId: IdSchema,
     }).parse(req.params)
 
     const existing = await prisma.priceTable.findFirst({ where: { id: tableId, clientId, deletedAt: null } })
@@ -215,7 +220,7 @@ export async function priceTableRoutes(app: FastifyInstance) {
   // Clona uma tabela inteira (útil para criar nova versão mantendo itens)
   app.post('/clients/:clientId/price-tables/:tableId/clone', { preHandler: adminOnly }, async (req, reply) => {
     const { clientId, tableId } = z.object({
-      clientId: z.string().uuid(), tableId: z.string().uuid(),
+      clientId: IdSchema, tableId: IdSchema,
     }).parse(req.params)
 
     const source = await prisma.priceTable.findFirst({
@@ -316,7 +321,7 @@ export async function priceTableRoutes(app: FastifyInstance) {
   // PATCH /clients/:clientId/price-tables/:tableId/items/:itemId
   app.patch('/clients/:clientId/price-tables/:tableId/items/:itemId', { preHandler: adminOnly }, async (req, reply) => {
     const { clientId, tableId, itemId } = z.object({
-      clientId: z.string().uuid(), tableId: z.string().uuid(), itemId: z.string().uuid(),
+      clientId: IdSchema, tableId: IdSchema, itemId: IdSchema,
     }).parse(req.params)
 
     const table = await prisma.priceTable.findFirst({ where: { id: tableId, clientId, deletedAt: null } })
@@ -352,7 +357,7 @@ export async function priceTableRoutes(app: FastifyInstance) {
   // DELETE /clients/:clientId/price-tables/:tableId/items/:itemId
   app.delete('/clients/:clientId/price-tables/:tableId/items/:itemId', { preHandler: adminOnly }, async (req, reply) => {
     const { clientId, tableId, itemId } = z.object({
-      clientId: z.string().uuid(), tableId: z.string().uuid(), itemId: z.string().uuid(),
+      clientId: IdSchema, tableId: IdSchema, itemId: IdSchema,
     }).parse(req.params)
 
     const table = await prisma.priceTable.findFirst({ where: { id: tableId, clientId, deletedAt: null } })

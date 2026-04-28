@@ -11,14 +11,19 @@ import { parsePagination, buildPaginatedResult, logAudit } from '../../shared/ut
 import { assertSelfOrAdmin } from '../../shared/middleware/auth.js'
 import type { JwtPayload } from '../../shared/types/index.js'
 
+const IdSchema = z.string().regex(
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+  'ID inválido.',
+)
+
 // ── Schemas ───────────────────────────────────────────────
 const CreateUserSchema = z.object({
   name:     z.string().min(2).max(255),
   email:    z.string().email(),
   password: z.string().min(8).max(100),
   role:     z.enum(['CLIENT', 'ANALYST', 'ADMIN']),
-  clientIds: z.array(z.string().uuid()).optional().default([]),
-  defaultClientId: z.string().uuid().optional().nullable(),
+  clientIds: z.array(IdSchema).optional().default([]),
+  defaultClientId: IdSchema.optional().nullable(),
 })
 
 const UpdateUserSchema = z.object({
@@ -29,7 +34,7 @@ const UpdateUserSchema = z.object({
   role:     z.enum(['CLIENT', 'ANALYST', 'ADMIN']).optional(),
 })
 
-const UserParamsSchema = z.object({ id: z.string().uuid() })
+const UserParamsSchema = z.object({ id: IdSchema })
 
 const UserQuerySchema = z.object({
   page:   z.coerce.number().optional(),
@@ -232,7 +237,7 @@ export async function userRoutes(app: FastifyInstance) {
   app.post('/users/:id/clients', { preHandler: adminOnly }, async (req, reply) => {
     const { id } = UserParamsSchema.parse(req.params)
     const { clientId, isDefault } = z.object({
-      clientId:  z.string().uuid(),
+      clientId:  IdSchema,
       isDefault: z.boolean().optional().default(false),
     }).parse(req.body)
 
@@ -254,10 +259,47 @@ export async function userRoutes(app: FastifyInstance) {
     return reply.status(201).send({ message: 'Vínculo criado.' })
   })
 
+  // PUT /users/:id/clients — substituir vínculos do usuário
+  app.put('/users/:id/clients', { preHandler: adminOnly }, async (req, reply) => {
+    const { id } = UserParamsSchema.parse(req.params)
+    const { clientIds, defaultClientId } = z.object({
+      clientIds: z.array(IdSchema).min(1, 'Selecione ao menos um cliente.'),
+      defaultClientId: IdSchema.optional().nullable(),
+    }).parse(req.body)
+
+    const user = await prisma.user.findFirst({ where: { id, deletedAt: null } })
+    if (!user) throw new NotFoundError('Usuário', id)
+
+    const clients = await prisma.client.findMany({
+      where: { id: { in: clientIds }, deletedAt: null },
+      select: { id: true },
+    })
+    if (clients.length !== clientIds.length) {
+      throw new NotFoundError('Cliente', 'um ou mais IDs informados')
+    }
+
+    const effectiveDefault = defaultClientId && clientIds.includes(defaultClientId)
+      ? defaultClientId
+      : clientIds[0]
+
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await tx.clientUser.deleteMany({ where: { userId: id } })
+      await tx.clientUser.createMany({
+        data: clientIds.map((clientId) => ({
+          userId: id,
+          clientId,
+          isDefault: clientId === effectiveDefault,
+        })),
+      })
+    })
+
+    return reply.send({ message: 'Vínculos atualizados com sucesso.' })
+  })
+
   // DELETE /users/:id/clients/:clientId — desvincular
   app.delete('/users/:id/clients/:clientId', { preHandler: adminOnly }, async (req, reply) => {
     const { id, clientId } = z.object({
-      id: z.string().uuid(), clientId: z.string().uuid(),
+      id: IdSchema, clientId: IdSchema,
     }).parse(req.params)
 
     const link = await prisma.clientUser.findFirst({ where: { userId: id, clientId } })

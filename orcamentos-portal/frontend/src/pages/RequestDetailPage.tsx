@@ -6,60 +6,74 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, MapPin, Calendar, User, Building2,
   Clock, CheckCircle2, XCircle, PauseCircle, Trash2,
-  ClipboardList, FileText, Send, UserCheck,
+  ClipboardList, FileText, UserCheck, Wrench, AlertTriangle, Printer
 } from 'lucide-react'
 import {
-  useRequest, useRequestHistory, useAssignRequest, useCreateQuote, useQuoteDecision,
+  useRequest, useRequestHistory, useQuotes, useAssignRequest, useCreateQuote, useQuoteDecision,
 } from '../hooks/queries'
-import { useRole, useUser } from '../store/auth.store'
+import { useRole } from '../store/auth.store'
 import {
   RequestStatusBadge, UrgentBadge, Modal, Alert, Spinner, PageLoader, EmptyState,
 } from '../components/ui'
-import { formatDate, formatDateTime } from '../lib/constants'
-import { extractApiError } from '../lib/api'
+import { formatCurrency, formatDate, formatDateTime } from '../lib/constants'
+import { api, extractApiError } from '../lib/api'
+import { useQueryClient } from '@tanstack/react-query'
 import QuoteBuilderPage from './QuoteBuilderPage'
 
 export default function RequestDetailPage() {
   const { id }   = useParams<{ id: string }>()
   const navigate = useNavigate()
   const role     = useRole()
-  const user     = useUser()
+  const qc       = useQueryClient()
 
   const { data: request, isLoading } = useRequest(id!)
   const { data: history = [] }       = useRequestHistory(id!)
-  const quoteDecision = useQuoteDecision()
+  // Carrega orçamentos separadamente para garantir id e dados completos
+  const { data: quotesData = [] }    = useQuotes(id!)
   const assignRequest = useAssignRequest()
   const createQuote   = useCreateQuote()
+  const quoteDecision  = useQuoteDecision()
 
   const [decisionModal, setDecisionModal] = useState<{ open: boolean; action: string } | null>(null)
   const [observations,  setObservations]  = useState('')
   const [apiError,      setApiError]      = useState('')
   const [showQuote,     setShowQuote]     = useState(false)
+  const [quoteToOpenId,  setQuoteToOpenId] = useState('')
 
   if (isLoading)  return <PageLoader />
   if (!request)   return <div className="p-8 text-surface-400">Solicitação não encontrada.</div>
 
-  const activeQuote = (request.quotes ?? []).find((q: any) => ['SENT', 'DRAFT', 'ON_HOLD'].includes(q.status))
-  const canDecide  = role === 'CLIENT' && !!activeQuote && ['SENT', 'ON_HOLD'].includes(activeQuote.status)
-  const canAnalyse = (role === 'ANALYST' || role === 'ADMIN') && ['IN_ANALYSIS', 'QUOTE_IN_PROGRESS'].includes(request.status)
-  const canAssign  = (role === 'ANALYST' || role === 'ADMIN') && request.status === 'REQUESTED'
-  const hasQuote   = (request.quotes ?? []).length > 0
+  // Usa os dados do endpoint /quotes que traz o id completo
+  const quotes     = quotesData.length > 0 ? quotesData : (request.quotes ?? [])
+  const hasQuote   = quotes.length > 0
+  const activeQuote = quotes.find((q: any) => q.status === 'SENT')
+    ?? quotes.find((q: any) => q.status === 'DRAFT')
+    ?? quotes[0]
+
+  const canDecide  = role === 'CLIENT' && ['QUOTE_SENT', 'ON_HOLD'].includes(request.status)
+  const canAnalyse = (role === 'ANALYST' || role === 'ADMIN')
+    && ['IN_ANALYSIS', 'QUOTE_IN_PROGRESS', 'QUOTE_SENT'].includes(request.status)
+  // Permite assumir em REQUESTED ou reatribuir em qualquer estado ativo
+  const canAssign  = (role === 'ANALYST' || role === 'ADMIN')
+    && ['REQUESTED', 'IN_ANALYSIS'].includes(request.status)
+    && !request.assignedTo
 
   const handleDecision = async (action: string) => {
+    if (!activeQuote?.id) {
+      setApiError('Nenhum orçamento enviado foi encontrado para esta solicitação.')
+      return
+    }
+
     const needsReason = ['REJECTED', 'ON_HOLD', 'CANCELLED'].includes(action)
     if (needsReason && !observations.trim()) {
       setApiError('Observação obrigatória para esta ação.')
       return
     }
     try {
-      if (!activeQuote) {
-        setApiError('Nenhum orçamento elegível para decisão.')
-        return
-      }
       await quoteDecision.mutateAsync({
         requestId: id!,
         quoteId: activeQuote.id,
-        data: { status: action, decisionReason: observations || null },
+        data: { status: action, decisionReason: observations },
       })
       setDecisionModal(null)
       setObservations('')
@@ -79,7 +93,8 @@ export default function RequestDetailPage() {
 
   const handleStartQuote = async () => {
     try {
-      await createQuote.mutateAsync({ requestId: id!, data: {} })
+      const quote = await createQuote.mutateAsync({ requestId: id!, data: {} })
+      setQuoteToOpenId(quote.id)
       setShowQuote(true)
     } catch (err) {
       setApiError(extractApiError(err))
@@ -87,84 +102,99 @@ export default function RequestDetailPage() {
   }
 
   if (showQuote) {
-    const quote = request.quotes?.[0]
-    if (quote) return <QuoteBuilderPage requestId={id!} quoteId={quote.id} onBack={() => setShowQuote(false)} />
+    const quoteId = quoteToOpenId || activeQuote?.id
+    if (quoteId) return <QuoteBuilderPage requestId={id!} quoteId={quoteId} onBack={() => setShowQuote(false)} />
   }
 
   return (
-    <div className="fade-in">
-      <div className="page-header">
-        <div className="flex items-center gap-2">
-          <button onClick={() => navigate(-1)} className="btn-ghost p-1.5">
-            <ChevronLeft size={16} />
+    <div className="fade-in pb-12">
+      <div className="page-header flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border-b border-surface-200 px-6 py-4 -mx-6 -mt-6 mb-6">
+        <div className="flex items-start md:items-center gap-3">
+          <button onClick={() => navigate(-1)} className="btn-ghost p-1.5 rounded hover:bg-surface-100 flex-shrink-0 mt-0.5 md:mt-0">
+            <ChevronLeft size={18} className="text-surface-600" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-semibold text-surface-900">{request.requestNumber}</h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="font-bold text-lg text-surface-900 leading-none">{request.requestNumber}</h1>
               {request.isUrgent && <UrgentBadge />}
+              <RequestStatusBadge status={request.status} />
+              
+              {/* Resumo visual do Total sempre visível - Pedido via feedback UX */}
+              {activeQuote && (
+                <div className="flex items-center gap-1.5 ml-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full border border-emerald-200 font-bold text-sm shadow-sm">
+                  Total: {formatCurrency(Number(activeQuote.totalValue ?? 0))}
+                </div>
+              )}
             </div>
-            <p className="text-xs text-surface-400">{formatDateTime(request.createdAt)}</p>
+            <p className="text-sm text-surface-500 mt-1">
+              Criado em {formatDateTime(request.createdAt)}
+            </p>
           </div>
         </div>
-        <RequestStatusBadge status={request.status} />
-      </div>
 
-      <div className="page-body max-w-4xl mx-auto space-y-5">
-        {apiError && <Alert type="error" message={apiError} />}
-
-        {/* Ações rápidas */}
-        {(canDecide || canAnalyse || canAssign) && (
-          <div className="card">
-            <div className="card-body">
-              <p className="text-xs font-semibold text-surface-400 uppercase tracking-wide mb-3">Ações disponíveis</p>
-              <div className="flex flex-wrap gap-2">
-                {canAssign && (
-                  <button className="btn-primary btn-sm" onClick={handleAssign}
-                    disabled={assignRequest.isPending}>
-                    <UserCheck size={14} />
-                    {assignRequest.isPending ? 'Assumindo...' : 'Assumir solicitação'}
+        {/* Ações rápidas movidas para o Header para economia de espaço */}
+        <div className="flex flex-wrap items-center gap-2">
+          {request.status === 'APPROVED' && activeQuote && (
+            <button className="btn-secondary btn-sm shadow-sm" onClick={() => window.print()}>
+              <Printer size={14} /> Exportar PDF
+            </button>
+          )}
+          {(canDecide || canAnalyse || canAssign) && (
+            <>
+              {canAssign && (
+                <button className="btn-primary btn-sm shadow-sm" onClick={handleAssign}
+                  disabled={assignRequest.isPending}>
+                  <UserCheck size={14} />
+                  {assignRequest.isPending ? 'Assumindo...' : 'Assumir solicitação'}
+                </button>
+              )}
+              {canAnalyse && !hasQuote && (
+                <button className="btn-primary btn-sm shadow-sm" onClick={handleStartQuote}
+                  disabled={createQuote.isPending}>
+                  <ClipboardList size={14} />
+                  {createQuote.isPending ? 'Criando...' : 'Iniciar orçamento'}
+                </button>
+              )}
+              {canAnalyse && hasQuote && (
+                <button
+                  className="btn-secondary btn-sm shadow-sm"
+                  onClick={() => { setQuoteToOpenId(activeQuote?.id ?? ''); setShowQuote(true) }}
+                >
+                  <FileText size={14} /> Editar orçamento
+                </button>
+              )}
+              {canDecide && (
+                <>
+                  <button className="btn-primary btn-sm shadow-sm bg-emerald-500 hover:bg-emerald-600 border-emerald-500"
+                    onClick={() => setDecisionModal({ open: true, action: 'APPROVED' })}>
+                    <CheckCircle2 size={14} /> Aprovar
                   </button>
-                )}
-                {canAnalyse && !hasQuote && (
-                  <button className="btn-primary btn-sm" onClick={handleStartQuote}
-                    disabled={createQuote.isPending}>
-                    <ClipboardList size={14} />
-                    {createQuote.isPending ? 'Criando...' : 'Iniciar orçamento'}
+                  <button className="btn-secondary btn-sm shadow-sm text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={() => setDecisionModal({ open: true, action: 'REJECTED' })}>
+                    <XCircle size={14} /> Reprovar
                   </button>
-                )}
-                {canAnalyse && hasQuote && (
-                  <button className="btn-secondary btn-sm" onClick={() => setShowQuote(true)}>
-                    <FileText size={14} /> Editar orçamento
-                  </button>
-                )}
-                {canDecide && (
-                  <>
-                    <button className="btn-primary btn-sm bg-emerald-500 hover:bg-emerald-600"
-                      onClick={() => setDecisionModal({ open: true, action: 'APPROVED' })}>
-                      <CheckCircle2 size={14} /> Aprovar
-                    </button>
-                    <button className="btn-secondary btn-sm text-red-600 border-red-200 hover:bg-red-50"
-                      onClick={() => setDecisionModal({ open: true, action: 'REJECTED' })}>
-                      <XCircle size={14} /> Reprovar
-                    </button>
-                    <button className="btn-secondary btn-sm text-orange-600 border-orange-200 hover:bg-orange-50"
+                  {request.status !== 'ON_HOLD' && (
+                    <button className="btn-secondary btn-sm shadow-sm text-orange-600 border-orange-200 hover:bg-orange-50 bg-white"
                       onClick={() => setDecisionModal({ open: true, action: 'ON_HOLD' })}>
                       <PauseCircle size={14} /> Em espera
                     </button>
-                    <button className="btn-ghost btn-sm text-surface-500"
-                      onClick={() => setDecisionModal({ open: true, action: 'CANCELLED' })}>
-                      <Trash2 size={14} /> Cancelar
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+                  )}
+                  <button className="btn-ghost btn-sm text-surface-500 hover:text-red-500 hover:bg-red-50"
+                    onClick={() => setDecisionModal({ open: true, action: 'CANCELLED' })}>
+                    <Trash2 size={14} /> Cancelar
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Coluna principal */}
-          <div className="md:col-span-2 space-y-5">
+      <div className="page-body max-w-[1500px] mx-auto space-y-6 screen-only">
+        {apiError && <Alert type="error" message={apiError} />}
+
+        {/* Top Info Cards - Dispostos horizontalmente ocupando tela toda */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {/* Bloco 1 — Solicitação */}
             <div className="card">
               <div className="card-header">
@@ -254,7 +284,39 @@ export default function RequestDetailPage() {
                 )}
               </div>
             </div>
+            {/* Bloco 3 — Datas (movido para grid Topo) */}
+            <div className="card h-full">
+              <div className="card-header">
+                <span className="text-sm font-semibold flex items-center gap-2">
+                  <Calendar size={14} className="text-surface-400" /> Datas
+                </span>
+              </div>
+              <div className="card-body">
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                  <div>
+                    <dt className="text-surface-400 text-xs text-nowrap">Data da solicitação</dt>
+                    <dd className="font-medium mt-0.5">{formatDate(request.createdAt)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-surface-400 text-xs text-nowrap">Conclusão desejada</dt>
+                    <dd className="font-medium mt-0.5">{formatDate(request.requestedDate)}</dd>
+                  </div>
+                  {request.estimatedDate && (
+                    <div>
+                      <dt className="text-surface-400 text-xs text-nowrap">Previsão confirmada</dt>
+                      <dd className="font-semibold text-brand-600 mt-0.5">{formatDate(request.estimatedDate)}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            </div>
+        </div>
 
+        {/* Main Interface Content Grid */}
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+          
+          {/* Content Left (Servicos e Orcamentos) - 75% largura em XL */}
+          <div className="xl:col-span-3 space-y-6">
             {/* Bloco 3 — Serviço */}
             <div className="card">
               <div className="card-header">
@@ -296,76 +358,157 @@ export default function RequestDetailPage() {
             {/* Orçamento resumido (se existir) */}
             {activeQuote && (
               <div className="card border-brand-200">
-                <div className="card-header">
-                  <span className="text-sm font-semibold text-brand-700">Orçamento</span>
-                  <span className={`badge ${activeQuote.status === 'SENT' ? 'bg-cyan-50 text-cyan-700' : 'bg-slate-100 text-slate-600'}`}>
-                    {activeQuote.status === 'SENT' ? 'Enviado' : 'Rascunho'}
+                <div className="card-header items-center">
+                  <span className="text-sm font-bold text-brand-700">
+                     Orçamento - {request.client?.name ?? request.finalClientName} - {request.requestNumber} - Total: {formatCurrency(Number(activeQuote.totalValue ?? 0))}
                   </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`badge ${activeQuote.status === 'SENT' ? 'bg-cyan-50 text-cyan-700' : 'bg-slate-100 text-slate-600'}`}>
+                      {activeQuote.status === 'SENT' ? 'Enviado' : activeQuote.status === 'DRAFT' ? 'Rascunho' : activeQuote.status}
+                    </span>
+                    {canAnalyse && activeQuote.status === 'DRAFT' && (
+                      <button
+                        className="btn-secondary btn-sm"
+                        onClick={() => { setQuoteToOpenId(activeQuote.id); setShowQuote(true) }}
+                      >
+                        <FileText size={14} /> Editar
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="card-body">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-surface-400">Valor total</p>
-                      <p className="text-xl font-bold text-brand-600">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(activeQuote.totalValue ?? 0)}
-                      </p>
+                  {(activeQuote.items ?? []).length === 0 ? (
+                    <EmptyState title="Orçamento sem itens" />
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Descrição</th>
+                            <th>Tipo</th>
+                            <th className="text-right">Qtd</th>
+                            <th className="text-right">Valor unit.</th>
+                            <th className="text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(activeQuote.items ?? []).map((item: any) => (
+                            <tr key={item.id}>
+                              <td>
+                                <p className="text-sm font-medium">{item.description}</p>
+                                <p className="text-xs text-surface-400">
+                                  {item.code ? `${item.code} · ` : ''}{item.unit}
+                                </p>
+                              </td>
+                              <td className="text-xs text-surface-500">{item.serviceType?.name ?? '—'}</td>
+                              <td className="text-right text-sm">{Number(item.quantity)}</td>
+                              <td className="text-right text-sm font-medium">{formatCurrency(Number(item.unitValue ?? 0))}</td>
+                              <td className="text-right text-sm font-semibold">{formatCurrency(Number(item.totalValue ?? 0))}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                    <button className="btn-primary btn-sm" onClick={() => navigate(`/requests/${id}/quotes/${activeQuote.id}`)}>
-                      <FileText size={14} /> Ver orçamento
-                    </button>
+                  )}
+
+                  <div className="mt-4 border-t border-surface-100 pt-4 flex justify-end">
+                    <div className="w-full max-w-xs space-y-1.5 text-sm">
+                      <div className="flex justify-between text-surface-600">
+                        <span>Subtotal</span>
+                        <span className="font-medium">{formatCurrency(Number(activeQuote.subtotal ?? 0))}</span>
+                      </div>
+                      {Number(activeQuote.discount ?? 0) > 0 && (
+                        <div className="flex justify-between text-emerald-600">
+                          <span>Desconto</span>
+                          <span className="font-medium">- {formatCurrency(Number(activeQuote.discount ?? 0))}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between border-t border-surface-200 pt-2 text-base font-bold">
+                        <span>Total</span>
+                        <span className="text-brand-600">{formatCurrency(Number(activeQuote.totalValue ?? 0))}</span>
+                      </div>
+                    </div>
                   </div>
+
+                  {(activeQuote.technicalNotes || activeQuote.commercialNotes) && (
+                    <div className="mt-4 border-t border-surface-100 pt-4 space-y-3">
+                      {activeQuote.technicalNotes && (
+                        <div>
+                          <p className="text-xs font-semibold text-surface-400 uppercase tracking-wide mb-1">Observações técnicas</p>
+                          <p className="text-sm text-surface-700">{activeQuote.technicalNotes}</p>
+                        </div>
+                      )}
+                      {activeQuote.commercialNotes && (
+                        <div>
+                          <p className="text-xs font-semibold text-surface-400 uppercase tracking-wide mb-1">Observações comerciais</p>
+                          <p className="text-sm text-surface-700">{activeQuote.commercialNotes}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Coluna lateral — Datas + Histórico */}
-          <div className="space-y-5">
-            <div className="card">
-              <div className="card-header">
-                <span className="text-sm font-semibold flex items-center gap-2">
-                  <Calendar size={14} className="text-surface-400" /> Datas
-                </span>
-              </div>
-              <div className="card-body space-y-3 text-sm">
-                <div>
-                  <p className="text-xs text-surface-400">Data da solicitação</p>
-                  <p className="font-medium">{formatDate(request.createdAt)}</p>
+          {/* Sidebar Right (Historico) - 25% largura em XL */}
+          <div className="xl:col-span-1 space-y-6">
+            
+            {/* Notas internas (Apenas Analistas/Admins) */}
+            {(role === 'ADMIN' || role === 'ANALYST') && (
+              <div className="card">
+                <div className="card-header">
+                  <span className="text-sm font-semibold flex items-center gap-2 text-surface-600">
+                    <FileText size={14} /> Adicionar Nota
+                  </span>
                 </div>
-                <div>
-                  <p className="text-xs text-surface-400">Data prevista (cliente)</p>
-                  <p className="font-medium">{formatDate(request.requestedDate)}</p>
+                <div className="card-body">
+                  <p className="text-[11px] text-surface-400 mb-2">Essas anotações ficam ocultas do cliente. São mostradas apenas para a equipe na timeline oficial.</p>
+                  <textarea rows={3} className="form-input text-xs w-full bg-yellow-50" placeholder="Anotação de uso interno..." id="internal-note-input" />
+                  <button className="btn-secondary btn-sm w-full mt-2" onClick={async (e) => {
+                    const el = document.getElementById('internal-note-input') as HTMLTextAreaElement
+                    if (!el || !el.value.trim()) return
+                    try {
+                      const btn = e.currentTarget;
+                      btn.disabled = true;
+                      btn.innerText = 'Salvando...';
+                      await api.post(`/api/v1/requests/${id}/notes`, { note: el.value })
+                      el.value = ''
+                      await Promise.all([
+                        qc.invalidateQueries({ queryKey: ['request', id] }),
+                        qc.invalidateQueries({ queryKey: ['request-history', id] })
+                      ])
+                      btn.disabled = false;
+                      btn.innerText = 'Salvar nota';
+                    } catch (err: any) {
+                      alert('Erro ao salvar nota: ' + extractApiError(err))
+                    }
+                  }}>Salvar nota</button>
                 </div>
-                {request.estimatedDate && (
-                  <div>
-                    <p className="text-xs text-surface-400">Data provável (analista)</p>
-                    <p className="font-medium text-brand-600">{formatDate(request.estimatedDate)}</p>
-                  </div>
-                )}
               </div>
-            </div>
+            )}
 
             {/* Histórico */}
-            <div className="card">
-              <div className="card-header">
+            <div className="card h-full max-h-[800px] flex flex-col">
+              <div className="card-header flex-shrink-0">
                 <span className="text-sm font-semibold flex items-center gap-2">
-                  <Clock size={14} className="text-surface-400" /> Histórico
+                  <Clock size={14} className="text-surface-400" /> Histórico de timeline
                 </span>
               </div>
-              <div className="card-body">
-                {history.length === 0
-                  ? <p className="text-xs text-surface-400 text-center py-4">Sem registros</p>
+              <div className="card-body overflow-y-auto override-scrollbar">
+                {history.filter((h: any) => role === 'CLIENT' ? h.action !== 'NOTA INTERNA' : true).length === 0
+                  ? <p className="text-xs text-surface-400 text-center py-8">Ainda não há registros nesta solicitação.</p>
                   : (
-                    <ol className="relative border-l border-surface-100 ml-2 space-y-4">
-                      {history.map((h: any) => (
-                        <li key={h.id} className="ml-4">
-                          <div className="absolute -left-1.5 mt-1 w-3 h-3 rounded-full bg-brand-200 border-2 border-white" />
-                          <p className="text-xs font-medium text-surface-700">{h.action}</p>
+                    <ol className="relative border-l border-surface-200 ml-2 space-y-5 pb-2">
+                      {history.filter((h: any) => role === 'CLIENT' ? h.action !== 'NOTA INTERNA' : true).map((h: any) => (
+                        <li key={h.id} className="ml-5">
+                          <div className={`absolute -left-1.5 mt-1.5 w-3 h-3 rounded-full ring-4 ring-white ${h.action === 'NOTA INTERNA' ? 'bg-amber-400' : 'bg-brand-400'}`} />
+                          <p className="text-xs font-semibold text-surface-800">{h.action}</p>
                           {h.observations && (
-                            <p className="text-xs text-surface-500 mt-0.5 italic">"{h.observations}"</p>
+                            <p className="text-xs text-surface-500 mt-1 italic border-l-2 border-surface-200 pl-2">"{h.observations}"</p>
                           )}
-                          <p className="text-xs text-surface-400 mt-0.5">
-                            {h.performedByUser?.name} · {formatDateTime(h.performedAt)}
+                          <p className="text-[11px] text-surface-400 mt-1 flex items-center gap-1">
+                            <User size={10} /> {h.performedByUser?.name} · {formatDateTime(h.performedAt)}
                           </p>
                         </li>
                       ))}
@@ -431,6 +574,131 @@ export default function RequestDetailPage() {
           </div>
         </Modal>
       )}
+
+      {/* ── Template Oculto para Impressão (PDF) via print-only ── */}
+      {activeQuote && request.status === 'APPROVED' && (
+        <div className="print-only print-container p-8 bg-white text-surface-900">
+          
+          {/* Header do PDF */}
+          <div className="flex justify-between items-start border-b-2 border-brand-500 pb-6 mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-brand-600 tracking-tight">Portal de Orçamentos</h1>
+              <p className="text-surface-500 mt-1">Proposta técnica e comercial</p>
+            </div>
+            <div className="text-right">
+              <p className="font-semibold text-lg">{request.requestNumber}</p>
+              <p className="text-surface-500">{formatDateTime(activeQuote.createdAt)}</p>
+            </div>
+          </div>
+
+          {/* Dados do Cliente */}
+          <div className="grid grid-cols-2 gap-8 mb-8 border-b border-surface-200 pb-8">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-widest text-surface-400 mb-2">Solicitante / Empresa</h3>
+              <p className="font-semibold">{request.requesterName}</p>
+              <p className="text-surface-600">{request.requesterEmail}</p>
+              {request.requesterPhone && <p className="text-surface-600">{request.requesterPhone}</p>}
+              <p className="text-surface-600 font-medium mt-1">Conta: {request.client?.name}</p>
+            </div>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-widest text-surface-400 mb-2">Cliente Final (Local do Serviço)</h3>
+              <p className="font-semibold">{request.finalClientName}</p>
+              {request.finalClientCompany && <p className="text-surface-600">{request.finalClientCompany}</p>}
+              <p className="text-surface-600 mt-1">
+                {request.street}{request.streetNumber && `, ${request.streetNumber}`}
+                {request.city && ` - ${request.city}`} {request.state && `/${request.state}`}
+              </p>
+              <p className="text-surface-600">CEP: {request.zipCode || 'Não informado'}</p>
+            </div>
+          </div>
+
+          {/* Escopo */}
+          <div className="mb-8">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-surface-400 mb-2">Escopo da Solicitação</h3>
+            <p className="text-surface-800 whitespace-pre-wrap">{request.description || request.observations || 'Nenhum detalhe adicional fornecido.'}</p>
+          </div>
+
+          {/* Tabela de Itens */}
+          <div className="mb-10">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-surface-400 mb-3">Itens do Orçamento</h3>
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="border-b-2 border-surface-200">
+                  <th className="py-2 pr-4 font-semibold text-surface-600">Item</th>
+                  <th className="py-2 px-4 font-semibold text-surface-600 text-right">Qtd</th>
+                  <th className="py-2 px-4 font-semibold text-surface-600 text-right">V. Unit</th>
+                  <th className="py-2 pl-4 font-semibold text-surface-600 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(activeQuote.items ?? []).map((item: any, idx: number) => (
+                  <tr key={item.id} className="border-b border-surface-100">
+                    <td className="py-3 pr-4">
+                      <div className="font-medium text-surface-900">{item.description}</div>
+                      {item.code && <div className="text-xs text-surface-400">Cód: {item.code}</div>}
+                    </td>
+                    <td className="py-3 px-4 text-right">{item.quantity} {item.unit}</td>
+                    <td className="py-3 px-4 text-right text-surface-600">{formatCurrency(item.unitValue)}</td>
+                    <td className="py-3 pl-4 text-right font-medium text-surface-900">{formatCurrency(item.totalValue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Totais */}
+            <div className="flex justify-end mt-4">
+              <div className="w-64 space-y-2">
+                <div className="flex justify-between text-surface-600">
+                  <span>Subtotal:</span>
+                  <span>{formatCurrency(activeQuote.subtotal)}</span>
+                </div>
+                {activeQuote.discount > 0 && (
+                  <div className="flex justify-between text-emerald-600">
+                    <span>Desconto:</span>
+                    <span>- {formatCurrency(activeQuote.discount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-lg font-bold border-t border-surface-200 pt-2 mt-2">
+                  <span>Total Geral:</span>
+                  <span className="text-brand-600">{formatCurrency(activeQuote.totalValue)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Observações do Orçamento */}
+          {(activeQuote.technicalNotes || activeQuote.commercialNotes) && (
+            <div className="border border-surface-200 rounded p-6 bg-surface-50 break-inside-avoid">
+              {activeQuote.technicalNotes && (
+                <div className="mb-4 last:mb-0">
+                  <h4 className="text-xs font-bold uppercase text-surface-400 mb-1">Notas Técnicas</h4>
+                  <p className="text-sm text-surface-800 whitespace-pre-wrap">{activeQuote.technicalNotes}</p>
+                </div>
+              )}
+              {activeQuote.commercialNotes && (
+                <div className="last:mb-0">
+                  <h4 className="text-xs font-bold uppercase text-surface-400 mb-1">Notas Comerciais</h4>
+                  <p className="text-sm text-surface-800 whitespace-pre-wrap">{activeQuote.commercialNotes}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Assinatura / Rodapé */}
+          <div className="mt-20 pt-8 border-t border-surface-200 flex justify-between text-sm text-surface-500">
+            <div>
+              <p>Orçamento aprovado em {formatDate(activeQuote.decidedAt || new Date())}</p>
+              <p>Por: {request.requesterName}</p>
+            </div>
+            <div className="text-right">
+              <p>Validade: 15 dias após emissão</p>
+              <p>Documento gerado automaticamente.</p>
+            </div>
+          </div>
+
+        </div>
+      )}
+
     </div>
   )
 }

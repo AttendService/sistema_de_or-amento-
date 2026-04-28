@@ -17,9 +17,14 @@ import {
   type RequestStatus, type JwtPayload,
 } from '../../shared/types/index.js'
 
+const IdSchema = z.string().regex(
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+  'ID inválido.',
+)
+
 // ── Schemas ───────────────────────────────────────────────
 const CreateRequestSchema = z.object({
-  clientId:            z.string().uuid(),
+  clientId:            IdSchema,
   requesterName:       z.string().min(2).max(255),
   requesterEmail:      z.string().email(),
   requesterPhone:      z.string().max(20).optional().nullable(),
@@ -42,13 +47,13 @@ const CreateRequestSchema = z.object({
   observations:        z.string().optional().nullable(),
   requestedDate:       z.string().date().optional().nullable(),
   isUrgent:            z.boolean().default(false),
-  serviceTypeIds:      z.array(z.string().uuid()).min(1, 'Selecione pelo menos um tipo de serviço.'),
+  serviceTypeIds:      z.array(IdSchema).min(1, 'Selecione pelo menos um tipo de serviço.'),
 })
 
 const UpdateRequestSchema = CreateRequestSchema
   .omit({ clientId: true, serviceTypeIds: true })
   .partial()
-  .extend({ serviceTypeIds: z.array(z.string().uuid()).min(1).optional() })
+  .extend({ serviceTypeIds: z.array(IdSchema).min(1).optional() })
 
 const ChangeStatusSchema = z.object({
   status:       z.enum(['REQUESTED','IN_ANALYSIS','QUOTE_IN_PROGRESS','QUOTE_SENT','APPROVED','REJECTED','ON_HOLD','CANCELLED']),
@@ -56,16 +61,19 @@ const ChangeStatusSchema = z.object({
   estimatedDate: z.string().date().optional().nullable(),
 })
 
-const ParamsSchema = z.object({ id: z.string().uuid() })
+const ParamsSchema = z.object({ id: IdSchema })
+const AddInternalNoteSchema = z.object({
+  note: z.string().trim().min(1, 'Nota não pode ser vazia.').max(2000),
+})
 
 const QuerySchema = z.object({
   page:          z.coerce.number().optional(),
   limit:         z.coerce.number().optional(),
   status:        z.string().optional(),
-  clientId:      z.string().uuid().optional(),
+  clientId:      IdSchema.optional(),
   isUrgent:      z.coerce.boolean().optional(),
-  serviceTypeId: z.string().uuid().optional(),
-  assignedTo:    z.string().uuid().optional(),
+  serviceTypeId: IdSchema.optional(),
+  assignedTo:    IdSchema.optional(),
   q:             z.string().optional(),
   from:          z.string().date().optional(),
   to:            z.string().date().optional(),
@@ -397,7 +405,7 @@ export async function requestRoutes(app: FastifyInstance) {
     if (!existing) throw new NotFoundError('Solicitação', id)
 
     const { analystId } = z.object({
-      analystId: z.string().uuid().optional(),
+      analystId: IdSchema.optional(),
     }).parse(req.body)
 
     const targetId = analystId ?? requester.sub
@@ -443,5 +451,41 @@ export async function requestRoutes(app: FastifyInstance) {
     })
 
     return reply.send(history)
+  })
+
+  // POST /requests/:id/notes — adicionar nota interna
+  app.post('/requests/:id/notes', { preHandler: [app.authenticate, app.requireRole('ANALYST', 'ADMIN')] }, async (req, reply) => {
+    const { id } = ParamsSchema.parse(req.params)
+    const requester = req.user as JwtPayload
+
+    const result = AddInternalNoteSchema.safeParse(req.body)
+    if (!result.success) {
+      return reply.status(422).send({
+        error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: result.error.flatten().fieldErrors },
+      })
+    }
+
+    const existing = await prisma.request.findFirst({ where: { id, deletedAt: null } })
+    if (!existing) throw new NotFoundError('Solicitação', id)
+
+    await prisma.requestHistory.create({
+      data: {
+        requestId: id,
+        performedBy: requester.sub,
+        action: 'NOTA INTERNA',
+        observations: result.data.note,
+      },
+    })
+
+    await logAudit({
+      userId: requester.sub,
+      action: 'UPDATE',
+      entityType: 'request',
+      entityId: id,
+      newValues: { internalNote: result.data.note },
+      ipAddress: req.ip,
+    })
+
+    return reply.status(201).send({ message: 'Nota interna registrada.' })
   })
 }

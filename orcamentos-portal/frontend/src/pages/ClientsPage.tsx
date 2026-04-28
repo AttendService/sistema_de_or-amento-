@@ -4,13 +4,13 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Plus, Search, Eye, Edit3, Building2, Users, FileText,
+  Plus, Search, Building2, Users, FileText, Trash2
 } from 'lucide-react'
-import { useClients, useClient, useCreateUser } from '../hooks/queries'
+import { useClients, useClient, useDeleteClient } from '../hooks/queries'
 import { useRole } from '../store/auth.store'
 import { api, extractApiError } from '../lib/api'
 import {
-  Modal, FormField, Alert, Spinner, PageLoader, EmptyState, Pagination,
+  Modal, FormField, Alert, PageLoader, EmptyState, Pagination,
 } from '../components/ui'
 import { formatDate } from '../lib/constants'
 import { useQueryClient } from '@tanstack/react-query'
@@ -24,7 +24,10 @@ export default function ClientsPage() {
   const [q,     setQ]     = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [createModal, setCreateModal] = useState(false)
+  const [deleteModal, setDeleteModal] = useState(false)
   const [apiError, setApiError]       = useState('')
+
+  const deleteClientMutation = useDeleteClient()
 
   const { data, isLoading } = useClients({ page, limit: 20, q: q || undefined })
   const clients    = data?.data ?? []
@@ -46,6 +49,18 @@ export default function ClientsPage() {
       setForm({ name: '', tradeName: '', document: '', email: '', phone: '' })
     } catch (err) {
       setApiError(extractApiError(err))
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!selected) return
+    try {
+      await deleteClientMutation.mutateAsync(selected)
+      setDeleteModal(false)
+      setSelected(null)
+    } catch (err) {
+      // Ignora erro silenciado ou pode mostrar em toast no futuro
+      setDeleteModal(false)
     }
   }
 
@@ -141,9 +156,17 @@ export default function ClientsPage() {
                           {detail.tradeName && <p className="text-sm text-surface-500">{detail.tradeName}</p>}
                         </div>
                       </div>
-                      <span className={`badge ${detail.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-100 text-surface-500'}`}>
-                        {detail.isActive ? 'Ativo' : 'Inativo'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`badge ${detail.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-100 text-surface-500'}`}>
+                          {detail.isActive ? 'Ativo' : 'Inativo'}
+                        </span>
+                        {role === 'ADMIN' && (
+                          <button className="btn-ghost btn-sm text-red-500 p-1.5 hover:bg-red-50"
+                            onClick={() => setDeleteModal(true)} title="Excluir">
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="card-body">
                       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
@@ -294,6 +317,22 @@ export default function ClientsPage() {
             <input type="email" value={form.email} onChange={e => setForm(v => ({ ...v, email: e.target.value }))}
               className="form-input" placeholder="contato@empresa.com" />
           </FormField>
+        </div>
+      </Modal>
+
+      {/* Modal Deletar */}
+      <Modal open={deleteModal} onClose={() => setDeleteModal(false)}
+        title="Excluir cliente"
+        footer={
+          <>
+            <button className="btn-secondary" onClick={() => setDeleteModal(false)}>Cancelar</button>
+            <button className="btn-danger" onClick={handleDelete} disabled={deleteClientMutation.isPending}>
+              Excluir
+            </button>
+          </>
+        }>
+        <div className="space-y-3">
+          <p className="text-sm text-surface-600">Tem certeza que deseja excluir o cliente <strong>{detail?.name}</strong>? Esta ação desativerá também seus registros relacionados.</p>
         </div>
       </Modal>
     </div>
