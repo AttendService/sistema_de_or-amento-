@@ -206,7 +206,7 @@ export async function requestRoutes(app: FastifyInstance) {
     const request = await prisma.request.findFirst({
       where: { id, deletedAt: null },
       include: {
-        client:          { select: { id: true, name: true, tradeName: true } },
+        client:          { select: { id: true, name: true, tradeName: true, document: true, phone: true } },
         createdByUser:   { select: { id: true, name: true, email: true } },
         assignedToUser:  { select: { id: true, name: true, email: true } },
         serviceTypes:    { include: { serviceType: true } },

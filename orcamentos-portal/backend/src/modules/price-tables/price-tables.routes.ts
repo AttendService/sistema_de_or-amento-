@@ -138,16 +138,68 @@ export async function priceTableRoutes(app: FastifyInstance) {
     })
     const version = (lastTable?.version ?? 0) + 1
 
-    const table = await prisma.priceTable.create({
-      data: {
-        clientId,
-        name:        result.data.name,
-        description: result.data.description ?? null,
-        validFrom:   result.data.validFrom   ? new Date(result.data.validFrom)  : null,
-        validUntil:  result.data.validUntil  ? new Date(result.data.validUntil) : null,
-        version,
-        createdBy: requester.sub,
+    // Modelo global: usado para que novas empresas já recebam TODOS os itens padrão.
+    // Estratégia:
+    // 1) prioriza tabelas com "padr" no nome
+    // 2) dentre elas, escolhe a com MAIOR quantidade de itens ativos
+    // 3) fallback para a tabela com mais itens ativos no geral
+    const candidates = await prisma.priceTable.findMany({
+      where: {
+        deletedAt: null,
+        items: { some: { status: 'ACTIVE' } },
       },
+      include: {
+        items: {
+          where: { status: 'ACTIVE' },
+          orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }],
+      take: 200,
+    })
+
+    const preferredCandidates = candidates.filter((table) =>
+      table.name.toLowerCase().includes('padr'),
+    )
+
+    const sortByTemplateStrength = (a: (typeof candidates)[number], b: (typeof candidates)[number]) =>
+      (b.items.length - a.items.length)
+      || (b.version - a.version)
+      || (new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    const template = (preferredCandidates.length > 0 ? preferredCandidates : candidates)
+      .sort(sortByTemplateStrength)[0]
+
+    const table = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const created = await tx.priceTable.create({
+        data: {
+          clientId,
+          name:        result.data.name,
+          description: result.data.description ?? null,
+          validFrom:   result.data.validFrom   ? new Date(result.data.validFrom)  : null,
+          validUntil:  result.data.validUntil  ? new Date(result.data.validUntil) : null,
+          version,
+          createdBy: requester.sub,
+        },
+      })
+
+      if (template?.items?.length) {
+        await tx.priceItem.createMany({
+          data: template.items.map((item: (typeof template.items)[number]) => ({
+            priceTableId: created.id,
+            serviceTypeId: item.serviceTypeId,
+            code: item.code,
+            description: item.description,
+            unit: item.unit,
+            unitValue: item.unitValue,
+            notes: item.notes,
+            sortOrder: item.sortOrder,
+            createdBy: requester.sub,
+          })),
+        })
+      }
+
+      return created
     })
 
     await logAudit({

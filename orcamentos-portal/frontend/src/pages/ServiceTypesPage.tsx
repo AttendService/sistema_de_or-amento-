@@ -76,10 +76,10 @@ export default function ServiceTypesPage() {
         </button>
       </div>
 
-      <div className="page-body max-w-2xl">
+      <div className="page-body">
         {apiError && <div className="mb-4"><Alert type="error" message={apiError} /></div>}
 
-        <div className="card overflow-hidden">
+        <div className="card overflow-hidden w-full">
           {isLoading ? <PageLoader /> : types.length === 0
             ? (
               <div className="card-body text-center py-12">
@@ -91,52 +91,54 @@ export default function ServiceTypesPage() {
               </div>
             )
             : (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th className="w-8">Ordem</th>
-                    <th>Nome</th>
-                    <th>Descrição</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(types as any[])
-                    .sort((a, b) => a.sortOrder - b.sortOrder)
-                    .map((t: any) => (
-                    <tr key={t.id}>
-                      <td className="text-xs text-surface-400 font-mono">{t.sortOrder}</td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded bg-brand-100 flex items-center justify-center">
-                            <Tags size={12} className="text-brand-600" />
-                          </div>
-                          <span className="font-medium text-sm">{t.name}</span>
-                        </div>
-                      </td>
-                      <td className="text-sm text-surface-500">{t.description || '—'}</td>
-                      <td>
-                        <button
-                          onClick={() => handleToggle(t)}
-                          className={`badge cursor-pointer transition-all hover:opacity-80
-                            ${t.status === 'ACTIVE'
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : 'bg-surface-100 text-surface-400'}`}
-                        >
-                          <span className={`badge-dot ${t.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-surface-400'}`} />
-                          {t.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
-                        </button>
-                      </td>
-                      <td>
-                        <button className="btn-ghost btn-sm p-1.5" onClick={() => openEdit(t)}>
-                          <Edit3 size={13} />
-                        </button>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th className="w-12">Ordem</th>
+                      <th className="w-[26%]">Nome</th>
+                      <th>Descrição</th>
+                      <th className="w-28">Status</th>
+                      <th className="w-20">Ações</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {(types as any[])
+                      .sort((a, b) => a.sortOrder - b.sortOrder)
+                      .map((t: any) => (
+                      <tr key={t.id}>
+                        <td className="text-xs text-surface-400 font-mono">{t.sortOrder}</td>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded bg-brand-100 flex items-center justify-center">
+                              <Tags size={12} className="text-brand-600" />
+                            </div>
+                            <span className="font-medium text-sm">{t.name}</span>
+                          </div>
+                        </td>
+                        <td className="text-sm text-surface-500">{t.description || '—'}</td>
+                        <td>
+                          <button
+                            onClick={() => handleToggle(t)}
+                            className={`badge cursor-pointer transition-all hover:opacity-80
+                              ${t.status === 'ACTIVE'
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-surface-100 text-surface-400'}`}
+                          >
+                            <span className={`badge-dot ${t.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-surface-400'}`} />
+                            {t.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
+                          </button>
+                        </td>
+                        <td>
+                          <button className="btn-ghost btn-sm p-1.5" onClick={() => openEdit(t)}>
+                            <Edit3 size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )
           }
         </div>

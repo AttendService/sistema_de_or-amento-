@@ -149,6 +149,50 @@ export default function RequestDetailPage() {
     }
   }
 
+  const showValue = (value: unknown) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      return trimmed.length > 0 ? trimmed : '—'
+    }
+    if (value === null || value === undefined) return '—'
+    return String(value)
+  }
+
+  const textOrNull = (value: unknown) => {
+    if (typeof value !== 'string') return null
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : null
+  }
+
+  const street = textOrNull(request.street)
+  const number = textOrNull(request.streetNumber)
+  const complement = textOrNull(request.complement)
+  const neighborhood = textOrNull(request.neighborhood)
+  const city = textOrNull(request.city)
+  const state = textOrNull(request.state)
+  const zipCode = textOrNull(request.zipCode)
+
+  const hasAnyAddress = Boolean(
+    street || number || complement || neighborhood || city || state || zipCode || textOrNull(request.reference) || request.latitude || request.longitude,
+  )
+
+  const addressLine1Parts = [
+    [street, number].filter(Boolean).join(', '),
+    neighborhood,
+    [city, state].filter(Boolean).join(' - '),
+    zipCode,
+    complement,
+  ].filter((part) => part && part.length > 0)
+
+  const addressLine2Parts = [
+    neighborhood,
+    [city, state].filter(Boolean).join(', '),
+    zipCode ? `CEP ${zipCode}` : null,
+  ].filter((part) => part && part.length > 0)
+
+  const addressLine1 = addressLine1Parts.join(', ')
+  const addressLine2 = addressLine2Parts.join(' — ')
+
   return (
     <div className="fade-in pb-12">
       <div className="page-header flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-surface-200 px-6 py-4 -mx-6 -mt-6 mb-6">
@@ -236,123 +280,115 @@ export default function RequestDetailPage() {
       <div className="page-body max-w-[1500px] mx-auto space-y-6 screen-only">
         {apiError && <Alert type="error" message={apiError} />}
 
-        {/* Top Info Cards - Dispostos horizontalmente ocupando tela toda */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* Bloco 1 — Solicitação */}
-            <div className="card lg:col-span-4">
-              <div className="card-header">
-                <span className="text-sm font-semibold flex items-center gap-2">
-                  <User size={14} className="text-surface-400" /> Dados da solicitação
-                </span>
-              </div>
-              <div className="card-body">
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <div>
-                    <dt className="text-surface-400 text-xs">Solicitante</dt>
-                    <dd className="font-medium truncate" title={request.requesterName}>{request.requesterName}</dd>
-                  </div>
-                  <div className="min-w-0">
-                    <dt className="text-surface-400 text-xs">E-mail</dt>
-                    <dd className="truncate" title={request.requesterEmail}>{request.requesterEmail}</dd>
-                  </div>
-                  {request.requesterPhone && (
+        {/* Bloco único — informações principais */}
+        <div className="card">
+          <div className="card-body">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold flex items-center gap-2 mb-2">
+                    <User size={14} className="text-surface-400" /> Dados da solicitação
+                  </p>
+                  <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
                     <div>
-                      <dt className="text-surface-400 text-xs">Telefone</dt>
-                      <dd className="truncate" title={request.requesterPhone}>{request.requesterPhone}</dd>
+                      <dt className="text-surface-400 text-xs">Solicitante</dt>
+                      <dd className="font-medium truncate" title={request.requesterName}>{request.requesterName}</dd>
                     </div>
-                  )}
-                  {request.client && (
-                    <div>
-                      <dt className="text-surface-400 text-xs">Cliente</dt>
-                      <dd className="font-medium truncate" title={request.client.name}>{request.client.name}</dd>
+                    <div className="min-w-0">
+                      <dt className="text-surface-400 text-xs">E-mail</dt>
+                      <dd className="truncate" title={request.requesterEmail}>{request.requesterEmail}</dd>
                     </div>
-                  )}
-                </dl>
-              </div>
-            </div>
+                    {request.requesterPhone && (
+                      <div>
+                        <dt className="text-surface-400 text-xs">Telefone</dt>
+                        <dd className="truncate" title={request.requesterPhone}>{request.requesterPhone}</dd>
+                      </div>
+                    )}
+                    {request.client && (
+                      <div>
+                        <dt className="text-surface-400 text-xs">Cliente</dt>
+                        <dd className="font-medium truncate" title={request.client.name}>{request.client.name}</dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
 
-            {/* Bloco 2 — Cliente final + endereço */}
-            <div className="card lg:col-span-5">
-              <div className="card-header">
-                <span className="text-sm font-semibold flex items-center gap-2">
-                  <Building2 size={14} className="text-surface-400" /> Cliente final / Localidade
-                </span>
+                <div className="pt-2 border-t border-surface-100">
+                  <p className="text-sm font-semibold flex items-center gap-2 mb-2">
+                    <Calendar size={14} className="text-surface-400" /> Datas
+                  </p>
+                  <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
+                    <div>
+                      <dt className="text-surface-400 text-xs">Data da solicitação</dt>
+                      <dd className="font-medium mt-0.5">{formatDate(request.createdAt)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-surface-400 text-xs">Conclusão desejada</dt>
+                      <dd className="font-medium mt-0.5">{formatDate(request.requestedDate)}</dd>
+                    </div>
+                    {request.estimatedDate && (
+                      <div>
+                        <dt className="text-surface-400 text-xs">Previsão confirmada</dt>
+                        <dd className="font-semibold text-brand-600 mt-0.5">{formatDate(request.estimatedDate)}</dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
               </div>
-              <div className="card-body space-y-3">
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+
+              <div>
+                <p className="text-sm font-semibold flex items-center gap-2 mb-2">
+                  <Building2 size={14} className="text-surface-400" /> Cliente final / Localidade
+                </p>
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
                   <div>
                     <dt className="text-surface-400 text-xs">Nome</dt>
-                    <dd className="font-medium truncate" title={request.finalClientName}>{request.finalClientName}</dd>
+                    <dd className="font-medium truncate" title={showValue(request.finalClientName)}>{showValue(request.finalClientName)}</dd>
                   </div>
-                  {request.finalClientCompany && (
-                    <div>
-                      <dt className="text-surface-400 text-xs">Empresa</dt>
-                      <dd className="truncate" title={request.finalClientCompany}>{request.finalClientCompany}</dd>
-                    </div>
-                  )}
-                  {request.finalClientContact && (
-                    <div>
-                      <dt className="text-surface-400 text-xs">Contato local</dt>
-                      <dd className="truncate" title={request.finalClientContact}>{request.finalClientContact}</dd>
-                    </div>
-                  )}
-                  {request.finalClientPhone && (
-                    <div>
-                      <dt className="text-surface-400 text-xs">Telefone local</dt>
-                      <dd className="truncate" title={request.finalClientPhone}>{request.finalClientPhone}</dd>
-                    </div>
-                  )}
+                  <div>
+                    <dt className="text-surface-400 text-xs">Empresa</dt>
+                    <dd className="truncate" title={showValue(request.finalClientCompany)}>
+                      {showValue(request.finalClientCompany)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-surface-400 text-xs">Contato local</dt>
+                    <dd className="truncate" title={showValue(request.finalClientContact)}>
+                      {showValue(request.finalClientContact)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-surface-400 text-xs">Telefone local</dt>
+                    <dd className="truncate" title={showValue(request.finalClientPhone)}>
+                      {showValue(request.finalClientPhone)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-surface-400 text-xs">CPF/CNPJ</dt>
+                    <dd className="truncate" title={showValue(request.finalClientDocument)}>
+                      {showValue(request.finalClientDocument)}
+                    </dd>
+                  </div>
                 </dl>
 
-                {request.street && (
-                  <div className="flex items-start gap-2 text-sm p-2.5 bg-surface-50 rounded-lg">
-                    <MapPin size={14} className="text-surface-400 flex-shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <p className="font-medium">
-                        {request.street}{request.streetNumber ? `, ${request.streetNumber}` : ''}
-                        {request.complement ? ` — ${request.complement}` : ''}
-                      </p>
-                      <p className="text-surface-500 break-words">
-                        {[request.neighborhood, request.city, request.state].filter(Boolean).join(', ')}
-                        {request.zipCode ? ` — CEP ${request.zipCode}` : ''}
-                      </p>
-                      {request.reference && <p className="text-surface-400 text-xs mt-1">{request.reference}</p>}
-                      {request.latitude && (
-                        <p className="text-xs font-mono text-surface-400 mt-1">
-                          {request.latitude}, {request.longitude}
-                        </p>
-                      )}
-                    </div>
+                <div className="mt-3 flex items-start gap-2 text-sm p-2.5 bg-surface-50 rounded-lg">
+                  <MapPin size={14} className="text-surface-400 flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="font-medium break-words">
+                      {addressLine1 || 'Endereço não informado'}
+                    </p>
+                    <p className="text-surface-500 break-words">
+                      {addressLine2 || 'Cidade/UF não informadas'}
+                    </p>
+                    <p className="text-surface-400 text-xs mt-1">{hasAnyAddress ? showValue(request.reference) : '—'}</p>
+                    <p className="text-xs font-mono text-surface-400 mt-1">
+                      {hasAnyAddress && request.latitude && request.longitude ? `${request.latitude}, ${request.longitude}` : '—'}
+                    </p>
                   </div>
-                )}
+                </div>
               </div>
             </div>
-            {/* Bloco 3 — Datas (movido para grid Topo) */}
-            <div className="card h-full lg:col-span-3">
-              <div className="card-header">
-                <span className="text-sm font-semibold flex items-center gap-2">
-                  <Calendar size={14} className="text-surface-400" /> Datas
-                </span>
-              </div>
-              <div className="card-body">
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <div>
-                    <dt className="text-surface-400 text-xs text-nowrap">Data da solicitação</dt>
-                    <dd className="font-medium mt-0.5">{formatDate(request.createdAt)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-surface-400 text-xs text-nowrap">Conclusão desejada</dt>
-                    <dd className="font-medium mt-0.5">{formatDate(request.requestedDate)}</dd>
-                  </div>
-                  {request.estimatedDate && (
-                    <div>
-                      <dt className="text-surface-400 text-xs text-nowrap">Previsão confirmada</dt>
-                      <dd className="font-semibold text-brand-600 mt-0.5">{formatDate(request.estimatedDate)}</dd>
-                    </div>
-                  )}
-                </dl>
-              </div>
-            </div>
+          </div>
         </div>
 
         {/* Main Interface Content Grid */}
