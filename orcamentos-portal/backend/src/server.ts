@@ -44,6 +44,7 @@ await app.register(fastifyCors, {
 await app.register(fastifyRateLimit, {
   max:        env.RATE_LIMIT_MAX,
   timeWindow: '1 minute',
+  allowList: (_req) => env.NODE_ENV !== 'production',
   errorResponseBuilder: () => ({
     error: { code: 'RATE_LIMIT', message: 'Muitas requisições. Tente novamente em breve.' },
   }),
@@ -105,6 +106,16 @@ app.setErrorHandler((error, req, reply) => {
   if (isObjectError(error) && typeof error.message === 'string' && error.message.includes('Unique constraint')) {
     return reply.status(409).send({
       error: { code: 'CONFLICT', message: 'Registro duplicado.' },
+    })
+  }
+
+  // Erros do Fastify (inclui rate limit) devem preservar status HTTP.
+  if (isObjectError(error) && typeof error.statusCode === 'number' && error.statusCode >= 400 && error.statusCode < 600) {
+    return reply.status(error.statusCode).send({
+      error: {
+        code: typeof error.code === 'string' ? error.code : 'HTTP_ERROR',
+        message: typeof error.message === 'string' ? error.message : 'Erro na requisição.',
+      },
     })
   }
 

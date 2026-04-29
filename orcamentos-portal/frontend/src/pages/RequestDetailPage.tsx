@@ -1,7 +1,7 @@
 // ============================================================
 // Detalhe da Solicitação
 // ============================================================
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, MapPin, Calendar, User, Building2,
@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import {
   useRequest, useRequestHistory, useQuotes, useAssignRequest, useCreateQuote, useQuoteDecision,
-  useAddQuoteItem, useUpdateQuoteItem, useDeleteQuoteItem, usePriceTables, usePriceTable,
+  useAddQuoteItem, useUpdateQuoteItem, useDeleteQuoteItem, usePriceTables, usePriceTable, useSendQuote,
 } from '../hooks/queries'
 import { useRole } from '../store/auth.store'
 import {
@@ -33,6 +33,7 @@ export default function RequestDetailPage() {
   const assignRequest = useAssignRequest()
   const createQuote   = useCreateQuote()
   const quoteDecision  = useQuoteDecision()
+  const sendQuote = useSendQuote()
   const addQuoteItem = useAddQuoteItem()
   const updateQuoteItem = useUpdateQuoteItem()
   const deleteQuoteItem = useDeleteQuoteItem()
@@ -40,23 +41,52 @@ export default function RequestDetailPage() {
   const [decisionModal, setDecisionModal] = useState<{ open: boolean; action: string } | null>(null)
   const [observations,  setObservations]  = useState('')
   const [apiError,      setApiError]      = useState('')
+  const [saveMessage,   setSaveMessage]   = useState('')
   const [inlineQuoteEdit, setInlineQuoteEdit] = useState(false)
   const [manualItem, setManualItem] = useState({
     priceItemId: '',
     quantity: 1,
   })
+  const [isAutoPopulatingItems, setIsAutoPopulatingItems] = useState(false)
+  const autoPopulatingRef = useRef(false)
 
-  const { data: priceTables = [] } = usePriceTables(request?.clientId ?? '', false)
-  const activePriceTable = priceTables.find((t: any) => t.status === 'ACTIVE') ?? priceTables[0]
+  const { data: priceTablesData } = usePriceTables(request?.clientId ?? '', false)
+  const priceTables = Array.isArray(priceTablesData)
+    ? priceTablesData
+    : Array.isArray((priceTablesData as any)?.items)
+      ? (priceTablesData as any).items
+      : Array.isArray((priceTablesData as any)?.data)
+        ? (priceTablesData as any).data
+        : []
   const [inlineTableId, setInlineTableId] = useState('')
-  const effectiveInlineTableId = inlineTableId || activePriceTable?.id || ''
+  const effectiveInlineTableId = inlineTableId
   const { data: inlinePriceTable } = usePriceTable(
     request?.clientId ?? '',
     effectiveInlineTableId,
     { includeInactive: false },
   )
-  const inlinePriceItems = inlinePriceTable?.items ?? []
+  const inlinePriceItems = Array.isArray(inlinePriceTable?.items)
+    ? inlinePriceTable.items
+    : Array.isArray((inlinePriceTable as any)?.data)
+      ? (inlinePriceTable as any).data
+      : []
+  const [selectedQuoteItemIds, setSelectedQuoteItemIds] = useState<string[]>([])
+  const [deletingItemIds, setDeletingItemIds] = useState<string[]>([])
   const selectedInlinePriceItem = inlinePriceItems.find((item: any) => item.id === manualItem.priceItemId)
+
+  useEffect(() => {
+    const currentItems = (quotesData.length > 0 ? quotesData : (request?.quotes ?? []))
+      .find((q: any) => q.status === 'SENT')
+      ?? (quotesData.length > 0 ? quotesData : (request?.quotes ?? []))
+        .find((q: any) => q.status === 'DRAFT')
+      ?? (quotesData.length > 0 ? quotesData : (request?.quotes ?? []))[0]
+    const currentItemIds = new Set(((currentItems?.items ?? []) as any[]).map((item: any) => item.id))
+    setSelectedQuoteItemIds((prev) => {
+      const next = prev.filter((itemId) => currentItemIds.has(itemId))
+      if (next.length === prev.length && next.every((itemId, idx) => itemId === prev[idx])) return prev
+      return next
+    })
+  }, [quotesData, request?.quotes])
 
   if (isLoading)  return <PageLoader />
   if (!request)   return <div className="p-8 text-surface-400">Solicitação não encontrada.</div>
@@ -118,6 +148,44 @@ export default function RequestDetailPage() {
     }
   }
 
+  const commitFocusedField = async () => {
+    const activeEl = document.activeElement as HTMLElement | null
+    if (activeEl && typeof activeEl.blur === 'function') {
+      activeEl.blur()
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+  }
+
+  const handleSaveDraft = async () => {
+    if (!id || !activeQuote?.id) return
+    try {
+      setApiError('')
+      await commitFocusedField()
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['quotes', id] }),
+        qc.invalidateQueries({ queryKey: ['requests', id] }),
+      ])
+      setInlineQuoteEdit(false)
+      setSaveMessage('Rascunho salvo internamente. O cliente ainda não visualiza este orçamento.')
+    } catch (err) {
+      setApiError(extractApiError(err))
+    }
+  }
+
+  const handleSaveAndSend = async () => {
+    if (!id || !activeQuote?.id) return
+    try {
+      setApiError('')
+      setSaveMessage('')
+      await commitFocusedField()
+      await sendQuote.mutateAsync({ requestId: id, quoteId: activeQuote.id })
+      setInlineQuoteEdit(false)
+      setSaveMessage('Orçamento salvo e enviado com sucesso. Agora ele já está visível para o cliente.')
+    } catch (err) {
+      setApiError(extractApiError(err))
+    }
+  }
+
   const handleAddManualItemInline = async () => {
     if (!id || !activeQuote?.id) return
     if (!selectedInlinePriceItem) {
@@ -144,6 +212,75 @@ export default function RequestDetailPage() {
         },
       })
       setManualItem({ priceItemId: '', quantity: 1 })
+    } catch (err) {
+      setApiError(extractApiError(err))
+    }
+  }
+
+  const handleInlineTableChange = async (nextTableId: string) => {
+    setInlineTableId(nextTableId)
+    setManualItem((v) => ({ ...v, priceItemId: '' }))
+    setApiError('')
+
+    if (!nextTableId) return
+
+    if (!id || !request?.clientId || !activeQuote?.id || autoPopulatingRef.current) return
+
+    const hasItems = (activeQuote.items ?? []).length > 0
+    if (hasItems) return
+
+    try {
+      autoPopulatingRef.current = true
+      setIsAutoPopulatingItems(true)
+
+      const response = await api.get(`/api/v1/clients/${request.clientId}/price-tables/${nextTableId}`, {
+        params: { includeInactive: false },
+      })
+      const tableItems = Array.isArray(response?.data?.items)
+        ? response.data.items
+        : Array.isArray(response?.data?.data)
+          ? response.data.data
+          : []
+      if (!Array.isArray(tableItems) || tableItems.length === 0) return
+
+      for (const tableItem of tableItems) {
+        await addQuoteItem.mutateAsync({
+          requestId: id,
+          quoteId: activeQuote.id,
+          data: {
+            origin: 'TABLE',
+            priceItemId: tableItem.id,
+            serviceTypeId: tableItem.serviceTypeId ?? undefined,
+            code: tableItem.code || undefined,
+            description: tableItem.description,
+            unit: tableItem.unit,
+            quantity: 1,
+            unitValue: Number(tableItem.unitValue),
+          },
+        })
+      }
+
+    } catch (err) {
+      setApiError(extractApiError(err))
+    } finally {
+      autoPopulatingRef.current = false
+      setIsAutoPopulatingItems(false)
+    }
+  }
+
+  const handleDeleteSelectedItems = async () => {
+    if (!id || !activeQuote?.id || selectedQuoteItemIds.length === 0) return
+    setApiError('')
+    try {
+      const uniqueItemIds = Array.from(new Set(selectedQuoteItemIds))
+      for (const itemId of uniqueItemIds) {
+        await deleteQuoteItem.mutateAsync({
+          requestId: id,
+          quoteId: activeQuote.id,
+          itemId,
+        })
+      }
+      setSelectedQuoteItemIds([])
     } catch (err) {
       setApiError(extractApiError(err))
     }
@@ -279,6 +416,11 @@ export default function RequestDetailPage() {
 
       <div className="page-body max-w-[1500px] mx-auto space-y-6 screen-only">
         {apiError && <Alert type="error" message={apiError} />}
+        {saveMessage && (
+          <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+            {saveMessage}
+          </div>
+        )}
 
         {/* Bloco único — informações principais */}
         <div className="card">
@@ -463,6 +605,21 @@ export default function RequestDetailPage() {
                       <table className="data-table">
                         <thead>
                           <tr>
+                            {inlineQuoteEdit && canAnalyse && activeQuote.status === 'DRAFT' && (
+                              <th className="w-10 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={(activeQuote.items ?? []).length > 0 && selectedQuoteItemIds.length === (activeQuote.items ?? []).length}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedQuoteItemIds((activeQuote.items ?? []).map((item: any) => item.id))
+                                      return
+                                    }
+                                    setSelectedQuoteItemIds([])
+                                  }}
+                                />
+                              </th>
+                            )}
                             <th>Descrição</th>
                             <th>Tipo</th>
                             <th className="text-right">Qtd</th>
@@ -474,6 +631,20 @@ export default function RequestDetailPage() {
                         <tbody>
                           {(activeQuote.items ?? []).map((item: any) => (
                             <tr key={item.id}>
+                              {inlineQuoteEdit && canAnalyse && activeQuote.status === 'DRAFT' && (
+                                <td className="text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedQuoteItemIds.includes(item.id)}
+                                    onChange={(e) => {
+                                      setSelectedQuoteItemIds((prev) => {
+                                        if (e.target.checked) return [...prev, item.id]
+                                        return prev.filter((id) => id !== item.id)
+                                      })
+                                    }}
+                                  />
+                                </td>
+                              )}
                               <td>
                                 <p className="text-sm font-medium">{item.description}</p>
                                 <p className="text-xs text-surface-400">
@@ -541,7 +712,9 @@ export default function RequestDetailPage() {
                                   <button
                                     className="btn-ghost btn-sm text-red-500 hover:text-red-600"
                                     onClick={async () => {
+                                      if (deletingItemIds.includes(item.id)) return
                                       try {
+                                        setDeletingItemIds((prev) => [...prev, item.id])
                                         await deleteQuoteItem.mutateAsync({
                                           requestId: id!,
                                           quoteId: activeQuote.id,
@@ -549,10 +722,13 @@ export default function RequestDetailPage() {
                                         })
                                       } catch (err) {
                                         setApiError(extractApiError(err))
+                                      } finally {
+                                        setDeletingItemIds((prev) => prev.filter((value) => value !== item.id))
                                       }
                                     }}
+                                    disabled={deletingItemIds.includes(item.id) || deleteQuoteItem.isPending}
                                   >
-                                    <Trash2 size={14} />
+                                    {deletingItemIds.includes(item.id) ? <Spinner size="sm" /> : <Trash2 size={14} />}
                                   </button>
                                 </td>
                               )}
@@ -563,28 +739,36 @@ export default function RequestDetailPage() {
                     </div>
                   )}
 
+                  {inlineQuoteEdit && canAnalyse && activeQuote.status === 'DRAFT' && (activeQuote.items ?? []).length > 0 && (
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        className="btn-secondary btn-sm text-red-600 border-red-200 hover:bg-red-50"
+                        onClick={handleDeleteSelectedItems}
+                        disabled={deleteQuoteItem.isPending || selectedQuoteItemIds.length === 0}
+                      >
+                        <Trash2 size={14} /> Excluir selecionados ({selectedQuoteItemIds.length})
+                      </button>
+                    </div>
+                  )}
+
                   {inlineQuoteEdit && canAnalyse && activeQuote.status === 'DRAFT' && (
                     <div className="mt-4 border-t border-surface-100 pt-4 space-y-3">
                       <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Adicionar item da tabela de preços</p>
                       <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
-                        {priceTables.length > 1 && (
-                          <select
-                            value={inlineTableId}
-                            onChange={(e) => {
-                              setInlineTableId(e.target.value)
-                              setManualItem((v) => ({ ...v, priceItemId: '' }))
-                            }}
-                            className="form-input text-xs"
-                          >
-                            {priceTables.map((t: any) => (
-                              <option key={t.id} value={t.id}>{t.name}</option>
-                            ))}
-                          </select>
-                        )}
+                        <select
+                          value={inlineTableId}
+                          onChange={(e) => void handleInlineTableChange(e.target.value)}
+                          className="form-input text-xs"
+                        >
+                          <option value="">Selecione tabela de preços...</option>
+                          {priceTables.map((t: any) => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
                         <select
                           value={manualItem.priceItemId}
                           onChange={(e) => setManualItem((v) => ({ ...v, priceItemId: e.target.value }))}
-                          className={`form-input text-xs ${priceTables.length > 1 ? 'md:col-span-3' : 'md:col-span-4'}`}
+                          className="form-input text-xs md:col-span-3"
                         >
                           <option value="">Selecione item cadastrado...</option>
                           {inlinePriceItems.map((item: any) => (
@@ -649,6 +833,26 @@ export default function RequestDetailPage() {
                       </div>
                     </div>
                   </div>
+
+                  {inlineQuoteEdit && canAnalyse && activeQuote.status === 'DRAFT' && (
+                    <div className="mt-4 border-t border-surface-100 pt-4 flex flex-wrap justify-end gap-2">
+                      <button
+                        className="btn-secondary btn-sm"
+                        onClick={handleSaveDraft}
+                        disabled={addQuoteItem.isPending || updateQuoteItem.isPending || deleteQuoteItem.isPending}
+                      >
+                        Salvar rascunho
+                      </button>
+                      <button
+                        className="btn-primary btn-sm"
+                        onClick={handleSaveAndSend}
+                        disabled={sendQuote.isPending || addQuoteItem.isPending || updateQuoteItem.isPending || deleteQuoteItem.isPending}
+                      >
+                        {sendQuote.isPending ? <Spinner size="sm" /> : null}
+                        Salvar
+                      </button>
+                    </div>
+                  )}
 
                   {(activeQuote.technicalNotes || activeQuote.commercialNotes) && (
                     <div className="mt-4 border-t border-surface-100 pt-4 space-y-3">

@@ -1,0 +1,52 @@
+- complementary [ref=e4]:
+  - generic [ref=e6]:
+    - img [ref=e8]
+    - generic [ref=e11]:
+      - paragraph [ref=e12]: Portal
+      - paragraph [ref=e13]: Orçamentos
+  - navigation [ref=e14]:
+    - link "Dashboard" [ref=e15] [cursor=pointer]:
+      - /url: /dashboard
+      - img [ref=e16]
+      - generic [ref=e21]: Dashboard
+    - link "Solicitações" [ref=e22] [cursor=pointer]:
+      - /url: /requests
+      - img [ref=e23]
+      - generic [ref=e26]: Solicitações
+    - link "Orçamentos" [ref=e27] [cursor=pointer]:
+      - /url: /quotes
+      - img [ref=e28]
+      - generic [ref=e31]: Orçamentos
+    - link "Clientes" [ref=e32] [cursor=pointer]:
+      - /url: /clients
+      - img [ref=e33]
+      - generic [ref=e36]: Clientes
+    - link "Usuários" [ref=e37] [cursor=pointer]:
+      - /url: /users
+      - img [ref=e38]
+      - generic [ref=e43]: Usuários
+    - link "Tabela de preços" [ref=e44] [cursor=pointer]:
+      - /url: /price-tables
+      - img [ref=e45]
+      - generic [ref=e47]: Tabela de preços
+    - link "Tipos de serviço" [ref=e48] [cursor=pointer]:
+      - /url: /service-types
+      - img [ref=e49]
+      - generic [ref=e53]: Tipos de serviço
+    - link "Relatórios" [ref=e54] [cursor=pointer]:
+      - /url: /reports
+      - img [ref=e55]
+      - generic [ref=e56]: Relatórios
+    - link "Perfil" [ref=e57] [cursor=pointer]:
+      - /url: /profile
+      - img [ref=e58]
+      - generic [ref=e63]: Perfil
+  - generic [ref=e65]:
+    - generic [ref=e67]: S
+    - generic [ref=e68]:
+      - paragraph [ref=e69]: Super Admin Local
+      - paragraph [ref=e70]: Administrador
+    - button "Trocar Tema" [ref=e71] [cursor=pointer]:
+      - img [ref=e72]
+    - button "Sair" [ref=e74] [cursor=pointer]:
+      - img [ref=e75]

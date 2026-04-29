@@ -1,0 +1,6 @@
+[     561ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5174/node_modules/.vite/deps/react-dom_client.js?v=59e2c236:14337
+[   87506ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5174/api/v1/requests/00000000-0000-0000-0003-000000000001/quotes/8a01fa5b-bfd6-4aab-9b42-ee653dcae51c/items/c35a2386-5a31-4b19-bbfb-bbc28bf21249:0
+[   87509ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5174/api/v1/requests/00000000-0000-0000-0003-000000000001:0
+[   87510ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5174/api/v1/requests/00000000-0000-0000-0003-000000000001/history:0
+[   88533ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5174/api/v1/requests/00000000-0000-0000-0003-000000000001:0
+[   88536ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5174/api/v1/requests/00000000-0000-0000-0003-000000000001/history:0

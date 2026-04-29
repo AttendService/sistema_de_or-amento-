@@ -1,0 +1,205 @@
+- generic [ref=e32]:
+  - complementary [ref=e33]:
+    - generic [ref=e35]:
+      - img [ref=e37]
+      - generic [ref=e40]:
+        - paragraph [ref=e41]: Portal
+        - paragraph [ref=e42]: Orçamentos
+    - navigation [ref=e43]:
+      - link "Dashboard" [ref=e44] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e45]
+        - generic [ref=e50]: Dashboard
+      - link "Solicitações" [ref=e51] [cursor=pointer]:
+        - /url: /requests
+        - img [ref=e52]
+        - generic [ref=e55]: Solicitações
+      - link "Orçamentos" [ref=e56] [cursor=pointer]:
+        - /url: /quotes
+        - img [ref=e57]
+        - generic [ref=e60]: Orçamentos
+      - link "Clientes" [ref=e61] [cursor=pointer]:
+        - /url: /clients
+        - img [ref=e62]
+        - generic [ref=e65]: Clientes
+      - link "Usuários" [ref=e66] [cursor=pointer]:
+        - /url: /users
+        - img [ref=e67]
+        - generic [ref=e72]: Usuários
+      - link "Tabela de preços" [ref=e73] [cursor=pointer]:
+        - /url: /price-tables
+        - img [ref=e74]
+        - generic [ref=e76]: Tabela de preços
+      - link "Tipos de serviço" [ref=e77] [cursor=pointer]:
+        - /url: /service-types
+        - img [ref=e78]
+        - generic [ref=e82]: Tipos de serviço
+      - link "Relatórios" [ref=e83] [cursor=pointer]:
+        - /url: /reports
+        - img [ref=e84]
+        - generic [ref=e85]: Relatórios
+      - link "Perfil" [ref=e86] [cursor=pointer]:
+        - /url: /profile
+        - img [ref=e87]
+        - generic [ref=e92]: Perfil
+    - generic [ref=e94]:
+      - generic [ref=e96]: S
+      - generic [ref=e97]:
+        - paragraph [ref=e98]: Super Admin Local
+        - paragraph [ref=e99]: Administrador
+      - button "Trocar Tema" [ref=e100] [cursor=pointer]:
+        - img [ref=e101]
+      - button "Sair" [ref=e103] [cursor=pointer]:
+        - img [ref=e104]
+  - generic [ref=e108]:
+    - generic [ref=e109]:
+      - generic [ref=e110]:
+        - heading "Dashboard" [level=1] [ref=e111]
+        - paragraph [ref=e112]: Visão geral de solicitações e orçamentos
+      - generic [ref=e113]:
+        - generic [ref=e114]:
+          - button "7 dias" [ref=e115] [cursor=pointer]
+          - button "30 dias" [ref=e116] [cursor=pointer]
+          - button "90 dias" [ref=e117] [cursor=pointer]
+          - button "1 ano" [ref=e118] [cursor=pointer]
+        - button "+ Nova solicitação" [ref=e119] [cursor=pointer]
+    - generic [ref=e120]:
+      - generic [ref=e122]:
+        - generic [ref=e126] [cursor=pointer]:
+          - paragraph [ref=e128]: Total Recebidas
+          - img [ref=e131]
+        - generic [ref=e137] [cursor=pointer]:
+          - paragraph [ref=e139]: Em Andamento
+          - img [ref=e142]
+        - generic [ref=e147] [cursor=pointer]:
+          - paragraph [ref=e149]: Orç. Enviados
+          - img [ref=e152]
+        - generic [ref=e158] [cursor=pointer]:
+          - paragraph [ref=e160]: Urgentes
+          - img [ref=e163]
+      - generic [ref=e166]:
+        - generic [ref=e170] [cursor=pointer]:
+          - paragraph [ref=e172]: Portfólio Total
+          - img [ref=e175]
+        - generic [ref=e182] [cursor=pointer]:
+          - paragraph [ref=e184]: Pipeline Ativo
+          - img [ref=e187]
+        - generic [ref=e191] [cursor=pointer]:
+          - paragraph [ref=e193]: Valor Aprovado
+          - img [ref=e196]
+        - generic [ref=e202] [cursor=pointer]:
+          - paragraph [ref=e204]: Descontos Concedidos
+          - img [ref=e207]
+      - generic [ref=e210]:
+        - generic [ref=e214] [cursor=pointer]:
+          - paragraph [ref=e216]: Taxa de Conversão
+          - img [ref=e219]
+        - generic [ref=e226] [cursor=pointer]:
+          - paragraph [ref=e228]: SLA Médio de Resposta
+          - img [ref=e231]
+        - generic [ref=e237] [cursor=pointer]:
+          - paragraph [ref=e239]: Aprovações
+          - img [ref=e242]
+        - generic [ref=e248] [cursor=pointer]:
+          - paragraph [ref=e250]: Reprovações
+          - img [ref=e253]
+      - generic [ref=e256]:
+        - generic [ref=e258]:
+          - generic [ref=e259]:
+            - paragraph [ref=e260]: Volume de Entradas
+            - paragraph [ref=e261]: Solicitações por mês
+          - button "Ver" [ref=e262] [cursor=pointer]:
+            - text: Ver
+            - img [ref=e263]
+        - generic [ref=e269]:
+          - generic [ref=e270]:
+            - paragraph [ref=e271]: Taxa de Conversão
+            - paragraph [ref=e272]: Aprovações vs decisões
+          - generic [ref=e273]: 0% atual
+        - generic [ref=e278]:
+          - generic [ref=e279]:
+            - paragraph [ref=e280]: Evolução do SLA
+            - paragraph [ref=e281]: Horas médias de resposta
+          - generic [ref=e282]: — atual
+      - generic [ref=e286]:
+        - generic [ref=e287]:
+          - generic [ref=e289]:
+            - paragraph [ref=e290]: Funil de Solicitações
+            - paragraph [ref=e291]: Da entrada à aprovação
+          - generic [ref=e292]:
+            - generic [ref=e294] [cursor=pointer]:
+              - generic [ref=e295]: Recebidas
+              - generic [ref=e296]:
+                - generic [ref=e297]: 0%
+                - generic [ref=e298]: "0"
+            - generic [ref=e302] [cursor=pointer]:
+              - generic [ref=e303]: Em Andamento
+              - generic [ref=e304]:
+                - generic [ref=e305]: 0%
+                - generic [ref=e306]: "0"
+            - generic [ref=e310] [cursor=pointer]:
+              - generic [ref=e311]: Orç. Enviados
+              - generic [ref=e312]:
+                - generic [ref=e313]: 0%
+                - generic [ref=e314]: "0"
+            - generic [ref=e318] [cursor=pointer]:
+              - generic [ref=e319]: Aprovadas
+              - generic [ref=e320]:
+                - generic [ref=e321]: 0%
+                - generic [ref=e322]: "0"
+            - generic [ref=e326] [cursor=pointer]:
+              - generic [ref=e327]: Reprovadas
+              - generic [ref=e328]:
+                - generic [ref=e329]: 0%
+                - generic [ref=e330]: "0"
+        - generic [ref=e334]:
+          - generic [ref=e335]:
+            - paragraph [ref=e336]: Distribuição por Status
+            - paragraph [ref=e337]: 0 solicitações
+          - button "Ver" [ref=e338] [cursor=pointer]:
+            - text: Ver
+            - img [ref=e339]
+      - generic [ref=e342]:
+        - generic [ref=e343]:
+          - generic [ref=e345]:
+            - paragraph [ref=e346]: Performance por Analista
+            - paragraph [ref=e347]: 0 analistas com demandas no período
+          - table [ref=e349]:
+            - rowgroup [ref=e350]:
+              - row "Analista Demandas SLA Médio Carga" [ref=e351]:
+                - columnheader "Analista" [ref=e352]
+                - columnheader "Demandas" [ref=e353]
+                - columnheader "SLA Médio" [ref=e354]
+                - columnheader "Carga" [ref=e355]
+            - rowgroup [ref=e356]:
+              - row "Carregando..." [ref=e357]:
+                - cell "Carregando..." [ref=e358]
+        - generic [ref=e359]:
+          - generic [ref=e361]:
+            - generic [ref=e362]:
+              - paragraph [ref=e363]: Top Clientes
+              - paragraph [ref=e364]: Por volume de demandas
+            - button "Ver" [ref=e365] [cursor=pointer]:
+              - text: Ver
+              - img [ref=e366]
+          - generic [ref=e369]:
+            - generic [ref=e371]:
+              - paragraph [ref=e372]: Demandas por Tipo de Serviço
+              - paragraph [ref=e373]: 0 categorias
+            - application [ref=e377]
+      - generic [ref=e378]:
+        - generic [ref=e379]:
+          - heading "Solicitações Recentes" [level=2] [ref=e381]
+          - button "Ver todas" [ref=e382] [cursor=pointer]:
+            - text: Ver todas
+            - img [ref=e383]
+        - table [ref=e387]:
+          - rowgroup [ref=e388]:
+            - row "Número Empresa Cliente Final Tipo de Serviço Status" [ref=e389]:
+              - columnheader "Número" [ref=e390]
+              - columnheader "Empresa" [ref=e391]
+              - columnheader "Cliente Final" [ref=e392]
+              - columnheader "Tipo de Serviço" [ref=e393]
+              - columnheader "Status" [ref=e394]
+              - columnheader [ref=e395]
+          - rowgroup

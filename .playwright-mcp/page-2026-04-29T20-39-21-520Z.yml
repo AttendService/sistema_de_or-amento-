@@ -1,0 +1,540 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - img [ref=e8]
+      - generic [ref=e11]:
+        - paragraph [ref=e12]: Portal
+        - paragraph [ref=e13]: Orçamentos
+    - navigation [ref=e14]:
+      - link "Dashboard" [ref=e15] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e16]
+        - generic [ref=e21]: Dashboard
+      - link "Solicitações" [ref=e22] [cursor=pointer]:
+        - /url: /requests
+        - img [ref=e23]
+        - generic [ref=e26]: Solicitações
+      - link "Orçamentos" [ref=e27] [cursor=pointer]:
+        - /url: /quotes
+        - img [ref=e28]
+        - generic [ref=e31]: Orçamentos
+      - link "Clientes" [ref=e32] [cursor=pointer]:
+        - /url: /clients
+        - img [ref=e33]
+        - generic [ref=e36]: Clientes
+      - link "Usuários" [ref=e37] [cursor=pointer]:
+        - /url: /users
+        - img [ref=e38]
+        - generic [ref=e43]: Usuários
+      - link "Tabela de preços" [ref=e44] [cursor=pointer]:
+        - /url: /price-tables
+        - img [ref=e45]
+        - generic [ref=e47]: Tabela de preços
+      - link "Tipos de serviço" [ref=e48] [cursor=pointer]:
+        - /url: /service-types
+        - img [ref=e49]
+        - generic [ref=e53]: Tipos de serviço
+      - link "Relatórios" [ref=e54] [cursor=pointer]:
+        - /url: /reports
+        - img [ref=e55]
+        - generic [ref=e56]: Relatórios
+      - link "Perfil" [ref=e57] [cursor=pointer]:
+        - /url: /profile
+        - img [ref=e58]
+        - generic [ref=e63]: Perfil
+    - generic [ref=e65]:
+      - generic [ref=e67]: S
+      - generic [ref=e68]:
+        - paragraph [ref=e69]: Super Admin Local
+        - paragraph [ref=e70]: Administrador
+      - button "Trocar Tema" [ref=e71] [cursor=pointer]:
+        - img [ref=e72]
+      - button "Sair" [ref=e74] [cursor=pointer]:
+        - img [ref=e75]
+  - generic [ref=e81]:
+    - generic [ref=e82]:
+      - generic [ref=e83]:
+        - button [ref=e84] [cursor=pointer]:
+          - img [ref=e85]
+        - generic [ref=e87]:
+          - generic [ref=e88]:
+            - heading "ORC-2024-000001" [level=1] [ref=e89]
+            - generic [ref=e90]: ⚡ Urgente
+            - generic [ref=e91]: Orçamento em elaboração
+            - generic [ref=e93]: "Total: R$ 4.366,19"
+          - paragraph [ref=e94]: Criado em 27/04/2026, 17:56
+      - button "Fechar edição" [ref=e370] [cursor=pointer]:
+        - img [ref=e97]
+        - text: Fechar edição
+    - generic [ref=e100]:
+      - generic [ref=e103]:
+        - generic [ref=e104]:
+          - generic [ref=e105]:
+            - paragraph [ref=e106]:
+              - img [ref=e107]
+              - text: Dados da solicitação
+            - generic [ref=e110]:
+              - generic [ref=e111]:
+                - term [ref=e112]: Solicitante
+                - definition [ref=e113]: Cliente Demo
+              - generic [ref=e114]:
+                - term [ref=e115]: E-mail
+                - definition [ref=e116]: cliente@demo.local
+              - generic [ref=e117]:
+                - term [ref=e118]: Telefone
+                - definition [ref=e119]: (11) 99999-0000
+              - generic [ref=e120]:
+                - term [ref=e121]: Cliente
+                - definition [ref=e122]: Empresa Demo Ltda
+          - generic [ref=e123]:
+            - paragraph [ref=e124]:
+              - img [ref=e125]
+              - text: Datas
+            - generic [ref=e127]:
+              - generic [ref=e128]:
+                - term [ref=e129]: Data da solicitação
+                - definition [ref=e130]: 27/04/2026
+              - generic [ref=e131]:
+                - term [ref=e132]: Conclusão desejada
+                - definition [ref=e133]: 30/12/2024
+        - generic [ref=e134]:
+          - paragraph [ref=e135]:
+            - img [ref=e136]
+            - text: Cliente final / Localidade
+          - generic [ref=e140]:
+            - generic [ref=e141]:
+              - term [ref=e142]: Nome
+              - definition [ref=e143]: João da Silva
+            - generic [ref=e144]:
+              - term [ref=e145]: Empresa
+              - definition [ref=e146]: Fazenda São José
+            - generic [ref=e147]:
+              - term [ref=e148]: Contato local
+              - definition [ref=e149]: —
+            - generic [ref=e150]:
+              - term [ref=e151]: Telefone local
+              - definition [ref=e152]: —
+            - generic [ref=e153]:
+              - term [ref=e154]: CPF/CNPJ
+              - definition [ref=e155]: —
+          - generic [ref=e156]:
+            - img [ref=e157]
+            - generic [ref=e160]:
+              - paragraph [ref=e161]: Campinas - SP
+              - paragraph [ref=e162]: Campinas, SP
+              - paragraph [ref=e163]: —
+              - paragraph [ref=e164]: —
+      - generic [ref=e165]:
+        - generic [ref=e166]:
+          - generic [ref=e167]:
+            - generic [ref=e169]: Dados do serviço
+            - generic [ref=e170]:
+              - generic [ref=e171]:
+                - paragraph [ref=e172]: Tipos de serviço
+                - generic [ref=e173]:
+                  - generic [ref=e174]: Ativação
+                  - generic [ref=e175]: Obra Civil
+              - generic [ref=e176]:
+                - paragraph [ref=e177]: Descrição
+                - paragraph [ref=e178]: Necessidade de ativação de link Starlink e obra civil para passagem de cabo até o escritório central.
+              - generic [ref=e179]:
+                - paragraph [ref=e180]: Analista responsável
+                - paragraph [ref=e181]: Analista Padrão
+          - generic [ref=e182]:
+            - generic [ref=e183]:
+              - generic [ref=e184]: "Orçamento - Empresa Demo Ltda - ORC-2024-000001 - Total: R$ 4.366,19"
+              - generic [ref=e185]:
+                - generic [ref=e186]: Rascunho
+                - button "Fechar edição" [ref=e371] [cursor=pointer]:
+                  - img [ref=e188]
+                  - text: Fechar edição
+            - generic [ref=e191]:
+              - table [ref=e543]:
+                - rowgroup [ref=e544]:
+                  - row "Descrição Tipo Qtd Valor unit. Total Ações" [ref=e545]:
+                    - columnheader [ref=e546]:
+                      - checkbox [ref=e547]
+                    - columnheader "Descrição" [ref=e548]
+                    - columnheader "Tipo" [ref=e549]
+                    - columnheader "Qtd" [ref=e550]
+                    - columnheader "Valor unit." [ref=e551]
+                    - columnheader "Total" [ref=e552]
+                    - columnheader "Ações" [ref=e553]
+                - rowgroup [ref=e554]:
+                  - row "Corrugado 1\" OBR-104 · m Obra Civil 1 5.87 R$ 5,87" [ref=e555]:
+                    - cell [ref=e556]:
+                      - checkbox [ref=e557]
+                    - cell "Corrugado 1\" OBR-104 · m" [ref=e558]:
+                      - paragraph [ref=e559]: Corrugado 1"
+                      - paragraph [ref=e560]: OBR-104 · m
+                    - cell "Obra Civil" [ref=e561]
+                    - cell "1" [ref=e562]:
+                      - spinbutton [ref=e563]: "1"
+                    - cell "5.87" [ref=e564]:
+                      - spinbutton [ref=e565]: "5.87"
+                    - cell "R$ 5,87" [ref=e566]
+                    - cell [ref=e567]:
+                      - button [ref=e568] [cursor=pointer]:
+                        - img [ref=e569]
+                  - row "Abra??adeira tipo U 1\" OBR-105 · un Obra Civil 1 6.09 R$ 6,09" [ref=e572]:
+                    - cell [ref=e573]:
+                      - checkbox [ref=e574]
+                    - cell "Abra??adeira tipo U 1\" OBR-105 · un" [ref=e575]:
+                      - paragraph [ref=e576]: Abra??adeira tipo U 1"
+                      - paragraph [ref=e577]: OBR-105 · un
+                    - cell "Obra Civil" [ref=e578]
+                    - cell "1" [ref=e579]:
+                      - spinbutton [ref=e580]: "1"
+                    - cell "6.09" [ref=e581]:
+                      - spinbutton [ref=e582]: "6.09"
+                    - cell "R$ 6,09" [ref=e583]
+                    - cell [ref=e584]:
+                      - button [ref=e585] [cursor=pointer]:
+                        - img [ref=e586]
+                  - row "Parafuso + bucha para fixa????o da abra??adeira OBR-106 · un Obra Civil 1 8.26 R$ 8,26" [ref=e589]:
+                    - cell [ref=e590]:
+                      - checkbox [ref=e591]
+                    - cell "Parafuso + bucha para fixa????o da abra??adeira OBR-106 · un" [ref=e592]:
+                      - paragraph [ref=e593]: Parafuso + bucha para fixa????o da abra??adeira
+                      - paragraph [ref=e594]: OBR-106 · un
+                    - cell "Obra Civil" [ref=e595]
+                    - cell "1" [ref=e596]:
+                      - spinbutton [ref=e597]: "1"
+                    - cell "8.26" [ref=e598]:
+                      - spinbutton [ref=e599]: "8.26"
+                    - cell "R$ 8,26" [ref=e600]
+                    - cell [ref=e601]:
+                      - button [ref=e602] [cursor=pointer]:
+                        - img [ref=e603]
+                  - row "Cabo de rede blindado CAT5E OBR-107 · m Obra Civil 1 8.23 R$ 8,23" [ref=e760]:
+                    - cell [ref=e761]:
+                      - checkbox [ref=e762]
+                    - cell "Cabo de rede blindado CAT5E OBR-107 · m" [ref=e763]:
+                      - paragraph [ref=e764]: Cabo de rede blindado CAT5E
+                      - paragraph [ref=e765]: OBR-107 · m
+                    - cell "Obra Civil" [ref=e766]
+                    - cell "1" [ref=e767]:
+                      - spinbutton [ref=e768]: "1"
+                    - cell "8.23" [ref=e769]:
+                      - spinbutton [ref=e770]: "8.23"
+                    - cell "R$ 8,23" [ref=e771]
+                    - cell [ref=e772]:
+                      - button [ref=e773] [cursor=pointer]:
+                        - img [ref=e774]
+                  - row "Conector RJ45 CAT5E blindado OBR-108 · un Obra Civil 1 1.39 R$ 1,39" [ref=e777]:
+                    - cell [ref=e778]:
+                      - checkbox [ref=e779]
+                    - cell "Conector RJ45 CAT5E blindado OBR-108 · un" [ref=e780]:
+                      - paragraph [ref=e781]: Conector RJ45 CAT5E blindado
+                      - paragraph [ref=e782]: OBR-108 · un
+                    - cell "Obra Civil" [ref=e783]
+                    - cell "1" [ref=e784]:
+                      - spinbutton [ref=e785]: "1"
+                    - cell "1.39" [ref=e786]:
+                      - spinbutton [ref=e787]: "1.39"
+                    - cell "R$ 1,39" [ref=e788]
+                    - cell [ref=e789]:
+                      - button [ref=e790] [cursor=pointer]:
+                        - img [ref=e791]
+                  - row "Cabo de el??trico 2.5mm OBR-109 · m Obra Civil 1 13.34 R$ 13,34" [ref=e794]:
+                    - cell [ref=e795]:
+                      - checkbox [ref=e796]
+                    - cell "Cabo de el??trico 2.5mm OBR-109 · m" [ref=e797]:
+                      - paragraph [ref=e798]: Cabo de el??trico 2.5mm
+                      - paragraph [ref=e799]: OBR-109 · m
+                    - cell "Obra Civil" [ref=e800]
+                    - cell "1" [ref=e801]:
+                      - spinbutton [ref=e802]: "1"
+                    - cell "13.34" [ref=e803]:
+                      - spinbutton [ref=e804]: "13.34"
+                    - cell "R$ 13,34" [ref=e805]
+                    - cell [ref=e806]:
+                      - button [ref=e807] [cursor=pointer]:
+                        - img [ref=e808]
+                  - row "Tomada de 3 pinos 10A OBR-110 · un Obra Civil 1 34.27 R$ 34,27" [ref=e811]:
+                    - cell [ref=e812]:
+                      - checkbox [ref=e813]
+                    - cell "Tomada de 3 pinos 10A OBR-110 · un" [ref=e814]:
+                      - paragraph [ref=e815]: Tomada de 3 pinos 10A
+                      - paragraph [ref=e816]: OBR-110 · un
+                    - cell "Obra Civil" [ref=e817]
+                    - cell "1" [ref=e818]:
+                      - spinbutton [ref=e819]: "1"
+                    - cell "34.27" [ref=e820]:
+                      - spinbutton [ref=e821]: "34.27"
+                    - cell "R$ 34,27" [ref=e822]
+                    - cell [ref=e823]:
+                      - button [ref=e824] [cursor=pointer]:
+                        - img [ref=e825]
+                  - row "KM OTR-102 · km Outros 1 1.9 R$ 1,90" [ref=e828]:
+                    - cell [ref=e829]:
+                      - checkbox [ref=e830]
+                    - cell "KM OTR-102 · km" [ref=e831]:
+                      - paragraph [ref=e832]: KM
+                      - paragraph [ref=e833]: OTR-102 · km
+                    - cell "Outros" [ref=e834]
+                    - cell "1" [ref=e835]:
+                      - spinbutton [ref=e836]: "1"
+                    - cell "1.9" [ref=e837]:
+                      - spinbutton [ref=e838]: "1.9"
+                    - cell "R$ 1,90" [ref=e839]
+                    - cell [ref=e840]:
+                      - button [ref=e841] [cursor=pointer]:
+                        - img [ref=e842]
+                  - row "Hospedagem OTR-103 · diaria Outros 1 220 R$ 220,00" [ref=e845]:
+                    - cell [ref=e846]:
+                      - checkbox [ref=e847]
+                    - cell "Hospedagem OTR-103 · diaria" [ref=e848]:
+                      - paragraph [ref=e849]: Hospedagem
+                      - paragraph [ref=e850]: OTR-103 · diaria
+                    - cell "Outros" [ref=e851]
+                    - cell "1" [ref=e852]:
+                      - spinbutton [ref=e853]: "1"
+                    - cell "220" [ref=e854]:
+                      - spinbutton [ref=e855]: "220"
+                    - cell "R$ 220,00" [ref=e856]
+                    - cell [ref=e857]:
+                      - button [ref=e858] [cursor=pointer]:
+                        - img [ref=e859]
+                  - row "Instala????o Starlink Mini ATV-101 · un Ativação 1 600 R$ 600,00" [ref=e606]:
+                    - cell [ref=e607]:
+                      - checkbox [ref=e608]
+                    - cell "Instala????o Starlink Mini ATV-101 · un" [ref=e609]:
+                      - paragraph [ref=e610]: Instala????o Starlink Mini
+                      - paragraph [ref=e611]: ATV-101 · un
+                    - cell "Ativação" [ref=e612]
+                    - cell "1" [ref=e613]:
+                      - spinbutton [ref=e614]: "1"
+                    - cell "600" [ref=e615]:
+                      - spinbutton [ref=e616]: "600"
+                    - cell "R$ 600,00" [ref=e617]
+                    - cell [ref=e618]:
+                      - button [ref=e619] [cursor=pointer]:
+                        - img [ref=e620]
+                  - row "Mensalidade do servi??o de Internet OTR-101 · mes Outros 1 1036 R$ 1.036,00" [ref=e623]:
+                    - cell [ref=e624]:
+                      - checkbox [ref=e625]
+                    - cell "Mensalidade do servi??o de Internet OTR-101 · mes" [ref=e626]:
+                      - paragraph [ref=e627]: Mensalidade do servi??o de Internet
+                      - paragraph [ref=e628]: OTR-101 · mes
+                    - cell "Outros" [ref=e629]
+                    - cell "1" [ref=e630]:
+                      - spinbutton [ref=e631]: "1"
+                    - cell "1036" [ref=e632]:
+                      - spinbutton [ref=e633]: "1036"
+                    - cell "R$ 1.036,00" [ref=e634]
+                    - cell [ref=e635]:
+                      - button [ref=e636] [cursor=pointer]:
+                        - img [ref=e637]
+                  - row "Ponto de rede OBR-101 · un Obra Civil 1 180 R$ 180,00" [ref=e640]:
+                    - cell [ref=e641]:
+                      - checkbox [ref=e642]
+                    - cell "Ponto de rede OBR-101 · un" [ref=e643]:
+                      - paragraph [ref=e644]: Ponto de rede
+                      - paragraph [ref=e645]: OBR-101 · un
+                    - cell "Obra Civil" [ref=e646]
+                    - cell "1" [ref=e647]:
+                      - spinbutton [ref=e648]: "1"
+                    - cell "180" [ref=e649]:
+                      - spinbutton [ref=e650]: "180"
+                    - cell "R$ 180,00" [ref=e651]
+                    - cell [ref=e652]:
+                      - button [ref=e653] [cursor=pointer]:
+                        - img [ref=e654]
+                  - row "Case Starlink veicular MAT-101 · un Outros 1 884 R$ 884,00" [ref=e657]:
+                    - cell [ref=e658]:
+                      - checkbox [ref=e659]
+                    - cell "Case Starlink veicular MAT-101 · un" [ref=e660]:
+                      - paragraph [ref=e661]: Case Starlink veicular
+                      - paragraph [ref=e662]: MAT-101 · un
+                    - cell "Outros" [ref=e663]
+                    - cell "1" [ref=e664]:
+                      - spinbutton [ref=e665]: "1"
+                    - cell "884" [ref=e666]:
+                      - spinbutton [ref=e667]: "884"
+                    - cell "R$ 884,00" [ref=e668]
+                    - cell [ref=e669]:
+                      - button [ref=e670] [cursor=pointer]:
+                        - img [ref=e671]
+                  - row "Case Interna MikroTik MAT-102 · un Outros 1 204 R$ 204,00" [ref=e674]:
+                    - cell [ref=e675]:
+                      - checkbox [ref=e676]
+                    - cell "Case Interna MikroTik MAT-102 · un" [ref=e677]:
+                      - paragraph [ref=e678]: Case Interna MikroTik
+                      - paragraph [ref=e679]: MAT-102 · un
+                    - cell "Outros" [ref=e680]
+                    - cell "1" [ref=e681]:
+                      - spinbutton [ref=e682]: "1"
+                    - cell "204" [ref=e683]:
+                      - spinbutton [ref=e684]: "204"
+                    - cell "R$ 204,00" [ref=e685]
+                    - cell [ref=e686]:
+                      - button [ref=e687] [cursor=pointer]:
+                        - img [ref=e688]
+                  - row "PowerBank Starlink Mini MAT-103 · un Outros 1 933.3 R$ 933,30" [ref=e691]:
+                    - cell [ref=e692]:
+                      - checkbox [ref=e693]
+                    - cell "PowerBank Starlink Mini MAT-103 · un" [ref=e694]:
+                      - paragraph [ref=e695]: PowerBank Starlink Mini
+                      - paragraph [ref=e696]: MAT-103 · un
+                    - cell "Outros" [ref=e697]
+                    - cell "1" [ref=e698]:
+                      - spinbutton [ref=e699]: "1"
+                    - cell "933.3" [ref=e700]:
+                      - spinbutton [ref=e701]: "933.3"
+                    - cell "R$ 933,30" [ref=e702]
+                    - cell [ref=e703]:
+                      - button [ref=e704] [cursor=pointer]:
+                        - img [ref=e705]
+                  - row "Conversor DC-DC 12V + case 3d MAT-104 · un Outros 1 160.77 R$ 160,77" [ref=e708]:
+                    - cell [ref=e709]:
+                      - checkbox [ref=e710]
+                    - cell "Conversor DC-DC 12V + case 3d MAT-104 · un" [ref=e711]:
+                      - paragraph [ref=e712]: Conversor DC-DC 12V + case 3d
+                      - paragraph [ref=e713]: MAT-104 · un
+                    - cell "Outros" [ref=e714]
+                    - cell "1" [ref=e715]:
+                      - spinbutton [ref=e716]: "1"
+                    - cell "160.77" [ref=e717]:
+                      - spinbutton [ref=e718]: "160.77"
+                    - cell "R$ 160,77" [ref=e719]
+                    - cell [ref=e720]:
+                      - button [ref=e721] [cursor=pointer]:
+                        - img [ref=e722]
+                  - row "Sealtube 1\" OBR-102 · m Obra Civil 1 50.37 R$ 50,37" [ref=e725]:
+                    - cell [ref=e726]:
+                      - checkbox [ref=e727]
+                    - cell "Sealtube 1\" OBR-102 · m" [ref=e728]:
+                      - paragraph [ref=e729]: Sealtube 1"
+                      - paragraph [ref=e730]: OBR-102 · m
+                    - cell "Obra Civil" [ref=e731]
+                    - cell "1" [ref=e732]:
+                      - spinbutton [ref=e733]: "1"
+                    - cell "50.37" [ref=e734]:
+                      - spinbutton [ref=e735]: "50.37"
+                    - cell "R$ 50,37" [ref=e736]
+                    - cell [ref=e737]:
+                      - button [ref=e738] [cursor=pointer]:
+                        - img [ref=e739]
+                  - row "Tubula????o galvanizada a fogo 1\" OBR-103 · m Obra Civil 1 18.4 R$ 18,40" [ref=e742]:
+                    - cell [ref=e743]:
+                      - checkbox [ref=e744]
+                    - cell "Tubula????o galvanizada a fogo 1\" OBR-103 · m" [ref=e745]:
+                      - paragraph [ref=e746]: Tubula????o galvanizada a fogo 1"
+                      - paragraph [ref=e747]: OBR-103 · m
+                    - cell "Obra Civil" [ref=e748]
+                    - cell "1" [ref=e749]:
+                      - spinbutton [ref=e750]: "1"
+                    - cell "18.4" [ref=e751]:
+                      - spinbutton [ref=e752]: "18.4"
+                    - cell "R$ 18,40" [ref=e753]
+                    - cell [ref=e754]:
+                      - button [ref=e755] [cursor=pointer]:
+                        - img [ref=e756]
+              - generic [ref=e759]:
+                - button "Excluir selecionados (0)" [disabled]:
+                  - img
+                  - text: Excluir selecionados (0)
+              - generic [ref=e520]:
+                - paragraph [ref=e521]: Adicionar item da tabela de preços
+                - generic [ref=e522]:
+                  - combobox [ref=e523]:
+                    - option "Selecione tabela de preços..."
+                    - option "Tabela de Pre??os Operacional 2026" [selected]
+                    - option "Tabela de Preços Padrão 2024"
+                  - combobox [ref=e524]:
+                    - option "Selecione item cadastrado..." [selected]
+                    - option "ATV-101 · Instala????o Starlink Mini"
+                    - option "OTR-101 · Mensalidade do servi??o de Internet"
+                    - option "OBR-101 · Ponto de rede"
+                    - option "MAT-101 · Case Starlink veicular"
+                    - option "MAT-102 · Case Interna MikroTik"
+                    - option "MAT-103 · PowerBank Starlink Mini"
+                    - option "MAT-104 · Conversor DC-DC 12V + case 3d"
+                    - option "OBR-102 · Sealtube 1\""
+                    - option "OBR-103 · Tubula????o galvanizada a fogo 1\""
+                    - option "OBR-104 · Corrugado 1\""
+                    - option "OBR-105 · Abra??adeira tipo U 1\""
+                    - option "OBR-106 · Parafuso + bucha para fixa????o da abra??adeira"
+                    - option "OBR-107 · Cabo de rede blindado CAT5E"
+                    - option "OBR-108 · Conector RJ45 CAT5E blindado"
+                    - option "OBR-109 · Cabo de el??trico 2.5mm"
+                    - option "OBR-110 · Tomada de 3 pinos 10A"
+                    - option "OTR-102 · KM"
+                    - option "OTR-103 · Hospedagem"
+                    - option "VST-101 · Atendimento Tecnico"
+                    - option "OBR-111 · Ponto de rede"
+                    - option "MDL-101 · Mudan??a de Layout Interno"
+                    - option "MDL-102 · Mudan??a de Layout Externo (remanejamento)"
+                    - option "MDE-101 · Mudan??a de Endere??o Desinstala????o Satelite"
+                    - option "MDE-102 · Mudan??a de Endere??o Instala????o Satelite"
+                    - option "ATV-102 · Instala????o Nova Satelite"
+                    - option "ATV-103 · Desinstala????o Satelite"
+                    - option "ATV-104 · Instala????o Elsys"
+                    - option "OTR-104 · Desinstala????o Roteador"
+                    - option "ATV-105 · Instala????o Switch"
+                    - option "OBR-112 · Patch Cord"
+                    - option "VST-102 · Visita Adicional"
+                    - option "VST-103 · Visita improdutiva"
+                    - option "OTR-105 · KM"
+                    - option "OTR-106 · Hospedagem"
+                    - option "OBR-113 · Ajudante"
+                    - option "OBR-114 · Cabo Coaxial RG-6"
+                  - spinbutton [ref=e525]: "1"
+                  - textbox "Unidade" [ref=e526]
+                - generic [ref=e527]:
+                  - textbox "Valor unitário" [ref=e528]
+                  - textbox "Descrição" [ref=e529]
+                  - generic [ref=e530]:
+                    - button "Adicionar item" [disabled]: Adicionar item
+              - generic [ref=e307]:
+                - generic [ref=e308]:
+                  - generic [ref=e309]: Subtotal
+                  - generic [ref=e310]: R$ 4.366,19
+                - generic [ref=e311]:
+                  - generic [ref=e312]: Total
+                  - generic [ref=e313]: R$ 4.366,19
+              - generic [ref=e533]:
+                - button "Salvar rascunho" [disabled]
+                - button "Salvar" [disabled]
+        - generic [ref=e314]:
+          - generic [ref=e315]:
+            - generic [ref=e317]:
+              - img [ref=e318]
+              - text: Adicionar Nota
+            - generic [ref=e321]:
+              - paragraph [ref=e322]: Essas anotações ficam ocultas do cliente. São mostradas apenas para a equipe na timeline oficial.
+              - textbox "Anotação de uso interno..." [ref=e323]
+              - button "Salvar nota" [ref=e324] [cursor=pointer]
+          - generic [ref=e325]:
+            - generic [ref=e327]:
+              - img [ref=e328]
+              - text: Histórico de timeline
+            - list [ref=e332]:
+              - listitem [ref=e333]:
+                - paragraph [ref=e335]: Orçamento iniciado
+                - paragraph [ref=e336]:
+                  - img [ref=e337]
+                  - text: Super Admin Local · 29/04/2026, 17:01
+              - listitem [ref=e340]:
+                - paragraph [ref=e342]: Solicitação criada pelo cliente
+                - paragraph [ref=e343]:
+                  - img [ref=e344]
+                  - text: Cliente Demo · 28/04/2026, 09:15
+              - listitem [ref=e347]:
+                - paragraph [ref=e349]: Analista assumiu a solicitação
+                - paragraph [ref=e350]: "\"Iniciando análise do projeto.\""
+                - paragraph [ref=e351]:
+                  - img [ref=e352]
+                  - text: Analista Padrão · 28/04/2026, 09:15
+              - listitem [ref=e355]:
+                - paragraph [ref=e357]: Solicitação criada pelo cliente
+                - paragraph [ref=e358]:
+                  - img [ref=e359]
+                  - text: Cliente Demo · 27/04/2026, 17:56
+              - listitem [ref=e362]:
+                - paragraph [ref=e364]: Analista assumiu a solicitação
+                - paragraph [ref=e365]: "\"Iniciando análise do projeto.\""
+                - paragraph [ref=e366]:
+                  - img [ref=e367]
+                  - text: Analista Padrão · 27/04/2026, 17:56

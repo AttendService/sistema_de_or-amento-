@@ -208,8 +208,11 @@ export const useAddQuoteItem = () => {
   return useMutation({
     mutationFn: ({ requestId, quoteId, data }: { requestId: string; quoteId: string; data: unknown }) =>
       api.post(`/api/v1/requests/${requestId}/quotes/${quoteId}/items`, data).then(r => r.data),
-    onSuccess: (_, { requestId, quoteId }) =>
-      qc.invalidateQueries({ queryKey: ['quotes', requestId, quoteId] }),
+    onSuccess: (_, { requestId, quoteId }) => {
+      qc.invalidateQueries({ queryKey: ['quotes', requestId] })
+      qc.invalidateQueries({ queryKey: ['quotes', requestId, quoteId] })
+      qc.invalidateQueries({ queryKey: ['requests', requestId] })
+    },
   })
 }
 
@@ -218,8 +221,11 @@ export const useUpdateQuoteItem = () => {
   return useMutation({
     mutationFn: ({ requestId, quoteId, itemId, data }: { requestId: string; quoteId: string; itemId: string; data: unknown }) =>
       api.patch(`/api/v1/requests/${requestId}/quotes/${quoteId}/items/${itemId}`, data).then(r => r.data),
-    onSuccess: (_, { requestId, quoteId }) =>
-      qc.invalidateQueries({ queryKey: ['quotes', requestId, quoteId] }),
+    onSuccess: (_, { requestId, quoteId }) => {
+      qc.invalidateQueries({ queryKey: ['quotes', requestId] })
+      qc.invalidateQueries({ queryKey: ['quotes', requestId, quoteId] })
+      qc.invalidateQueries({ queryKey: ['requests', requestId] })
+    },
   })
 }
 
@@ -228,8 +234,11 @@ export const useDeleteQuoteItem = () => {
   return useMutation({
     mutationFn: ({ requestId, quoteId, itemId }: { requestId: string; quoteId: string; itemId: string }) =>
       api.delete(`/api/v1/requests/${requestId}/quotes/${quoteId}/items/${itemId}`),
-    onSuccess: (_, { requestId, quoteId }) =>
-      qc.invalidateQueries({ queryKey: ['quotes', requestId, quoteId] }),
+    onSuccess: (_, { requestId, quoteId }) => {
+      qc.invalidateQueries({ queryKey: ['quotes', requestId] })
+      qc.invalidateQueries({ queryKey: ['quotes', requestId, quoteId] })
+      qc.invalidateQueries({ queryKey: ['requests', requestId] })
+    },
   })
 }
 

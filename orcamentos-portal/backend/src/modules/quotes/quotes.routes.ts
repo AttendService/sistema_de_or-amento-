@@ -295,7 +295,8 @@ export async function quoteRoutes(app: FastifyInstance) {
     }
 
     const existing = await prisma.quoteItem.findFirst({ where: { id: itemId, quoteId } })
-    if (!existing) throw new NotFoundError('Item do orçamento', itemId)
+    // Torna a exclusão idempotente para evitar erro em cliques repetidos/concorrência.
+    if (!existing) return reply.status(204).send()
 
     const result = UpdateItemSchema.safeParse(req.body)
     if (!result.success) {
@@ -349,11 +350,9 @@ export async function quoteRoutes(app: FastifyInstance) {
       throw new ValidationError('Apenas orçamentos em rascunho podem ser editados.')
     }
 
-    const existing = await prisma.quoteItem.findFirst({ where: { id: itemId, quoteId } })
-    if (!existing) throw new NotFoundError('Item do orçamento', itemId)
-
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.quoteItem.delete({ where: { id: itemId } })
+      const deleted = await tx.quoteItem.deleteMany({ where: { id: itemId, quoteId } })
+      if (deleted.count === 0) return
       await recalculateQuoteTotals(tx, quoteId)
     })
 
