@@ -66,7 +66,12 @@ export default function PriceTablesPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; itemId: string } | null>(null)
   const [deleteTableConfirm, setDeleteTableConfirm] = useState(false)
 
-  const [tableForm, setTableForm] = useState({ name: '', description: '' })
+  const [tableForm, setTableForm] = useState({
+    name: '',
+    description: '',
+    sourceClientId: '',
+    sourceTableId: '',
+  })
   const [itemForm,  setItemForm]  = useState({
     code: '', description: '', unit: 'un', unitValue: '', serviceTypeId: '', notes: '', sortOrder: 0,
   })
@@ -74,23 +79,19 @@ export default function PriceTablesPage() {
   const handleCreateTable = async () => {
     if (!selectedClientId) return
     try {
-      const templateTable = activeTable ?? defaultTable
-      let result: any
-
-      // Regra: nova tabela já nasce com o modelo padrão para acelerar cadastro.
-      if (templateTable?.id) {
-        result = await api
-          .post(`/api/v1/clients/${selectedClientId}/price-tables/${templateTable.id}/clone`, {
-            newName: tableForm.name,
-          })
-          .then((r) => r.data)
-      } else {
-        result = await createTable.mutateAsync({ clientId: selectedClientId, data: tableForm })
-      }
+      const result = await createTable.mutateAsync({
+        clientId: selectedClientId,
+        data: {
+          name: tableForm.name,
+          description: tableForm.description,
+          sourceClientId: tableForm.sourceClientId || undefined,
+          sourceTableId: tableForm.sourceTableId || undefined,
+        },
+      })
 
       setSelectedTableId(result.id)
       setTableModal({ open: false, mode: 'create' })
-      setTableForm({ name: '', description: '' })
+      setTableForm({ name: '', description: '', sourceClientId: '', sourceTableId: '' })
       await qc.invalidateQueries({ queryKey: ['price-tables', selectedClientId] })
       await qc.invalidateQueries({ queryKey: ['price-tables', selectedClientId, result.id] })
     } catch (err) { setApiError(extractApiError(err)) }
@@ -123,6 +124,15 @@ export default function PriceTablesPage() {
       setDeleteConfirm(null)
     } catch (err) { setApiError(extractApiError(err)) }
   }
+
+  const { data: sourceTables = [], isLoading: loadingSourceTables } = usePriceTables(tableForm.sourceClientId)
+
+  useEffect(() => {
+    if (!tableForm.sourceClientId) return
+    if (!sourceTables.some((table: any) => table.id === tableForm.sourceTableId)) {
+      setTableForm((prev) => ({ ...prev, sourceTableId: '' }))
+    }
+  }, [sourceTables, tableForm.sourceClientId, tableForm.sourceTableId])
 
   const openEditItem = (item: any) => {
     setItemForm({
@@ -194,7 +204,15 @@ export default function PriceTablesPage() {
                 <div className="card-header">
                   <span className="text-sm font-semibold">Tabelas</span>
                   <button className="btn-primary btn-sm p-1.5"
-                    onClick={() => { setTableModal({ open: true, mode: 'create' }); setTableForm({ name: '', description: '' }) }}>
+                    onClick={() => {
+                      setTableModal({ open: true, mode: 'create' })
+                      setTableForm({
+                        name: '',
+                        description: '',
+                        sourceClientId: selectedClientId,
+                        sourceTableId: activeTable?.id ?? '',
+                      })
+                    }}>
                     <Plus size={14} />
                   </button>
                 </div>
@@ -358,8 +376,43 @@ export default function PriceTablesPage() {
               onChange={e => setTableForm(v => ({ ...v, description: e.target.value }))}
               className="form-input resize-none" />
           </FormField>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <FormField label="Empresa de origem do modelo">
+              <select
+                value={tableForm.sourceClientId}
+                onChange={(e) => setTableForm((v) => ({ ...v, sourceClientId: e.target.value, sourceTableId: '' }))}
+                className="form-input appearance-none"
+              >
+                <option value="">Usar modelo padrão automático</option>
+                {clients.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Tabela de origem">
+              <select
+                value={tableForm.sourceTableId}
+                onChange={(e) => setTableForm((v) => ({ ...v, sourceTableId: e.target.value }))}
+                className="form-input appearance-none"
+                disabled={!tableForm.sourceClientId || loadingSourceTables}
+              >
+                <option value="">
+                  {!tableForm.sourceClientId
+                    ? 'Selecione primeiro a empresa'
+                    : loadingSourceTables
+                      ? 'Carregando tabelas...'
+                      : 'Selecione a tabela para copiar'}
+                </option>
+                {sourceTables.map((t: any) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} (v{t.version})
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          </div>
           <p className="text-xs text-surface-400">
-            A nova tabela será criada com base no modelo padrão atual e você poderá ajustar os itens depois.
+            Você pode escolher a empresa e tabela de origem para copiar os itens. Se não escolher, o sistema usa o modelo padrão automático.
           </p>
         </div>
       </Modal>

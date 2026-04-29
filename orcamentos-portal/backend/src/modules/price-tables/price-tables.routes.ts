@@ -10,6 +10,8 @@ import { NotFoundError, ForbiddenError } from '../../shared/errors/index.js'
 import { logAudit } from '../../shared/utils/index.js'
 import type { JwtPayload } from '../../shared/types/index.js'
 
+const DEFAULT_TEMPLATE_COMPANY_HINT = 'empresa demo'
+
 const IdSchema = z.string().regex(
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
   'ID inválido.',
@@ -26,6 +28,8 @@ const CreateTableSchema = z.object({
   description: z.string().optional().nullable(),
   validFrom:   z.string().datetime().optional().nullable(),
   validUntil:  z.string().datetime().optional().nullable(),
+  sourceClientId: IdSchema.optional(),
+  sourceTableId: IdSchema.optional(),
 })
 
 const UpdateTableSchema = CreateTableSchema.partial().extend({
@@ -138,37 +142,108 @@ export async function priceTableRoutes(app: FastifyInstance) {
     })
     const version = (lastTable?.version ?? 0) + 1
 
-    // Modelo global: usado para que novas empresas já recebam TODOS os itens padrão.
-    // Estratégia:
-    // 1) prioriza tabelas com "padr" no nome
-    // 2) dentre elas, escolhe a com MAIOR quantidade de itens ativos
-    // 3) fallback para a tabela com mais itens ativos no geral
-    const candidates = await prisma.priceTable.findMany({
-      where: {
-        deletedAt: null,
-        items: { some: { status: 'ACTIVE' } },
-      },
-      include: {
-        items: {
-          where: { status: 'ACTIVE' },
-          orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    if (!!result.data.sourceClientId !== !!result.data.sourceTableId) {
+      return reply.status(422).send({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Dados inválidos.',
+          details: {
+            sourceTableId: ['Informe empresa e tabela de origem juntas.'],
+          },
         },
-      },
-      orderBy: [{ createdAt: 'desc' }],
-      take: 200,
-    })
+      })
+    }
 
-    const preferredCandidates = candidates.filter((table) =>
-      table.name.toLowerCase().includes('padr'),
-    )
+    const loadTemplateBySource = async () => {
+      if (!result.data.sourceClientId || !result.data.sourceTableId) {
+        return null
+      }
 
-    const sortByTemplateStrength = (a: (typeof candidates)[number], b: (typeof candidates)[number]) =>
-      (b.items.length - a.items.length)
-      || (b.version - a.version)
-      || (new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      return prisma.priceTable.findFirst({
+        where: {
+          id: result.data.sourceTableId,
+          clientId: result.data.sourceClientId,
+          deletedAt: null,
+        },
+        include: {
+          items: {
+            where: { status: 'ACTIVE' },
+            orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+          },
+        },
+      })
+    }
 
-    const template = (preferredCandidates.length > 0 ? preferredCandidates : candidates)
-      .sort(sortByTemplateStrength)[0]
+    const loadDefaultTemplate = async () => {
+      // Modelo padrão oficial: empresa demo (base mestra para novos clientes).
+      const demoClient = await prisma.client.findFirst({
+        where: {
+          deletedAt: null,
+          OR: [
+            { name: { contains: DEFAULT_TEMPLATE_COMPANY_HINT, mode: 'insensitive' } },
+            { tradeName: { contains: DEFAULT_TEMPLATE_COMPANY_HINT, mode: 'insensitive' } },
+            { name: { contains: 'demo', mode: 'insensitive' } },
+            { tradeName: { contains: 'demo', mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true },
+      })
+
+      const candidates = await prisma.priceTable.findMany({
+        where: {
+          deletedAt: null,
+          ...(demoClient ? { clientId: demoClient.id } : {}),
+          items: { some: { status: 'ACTIVE' } },
+        },
+        include: {
+          items: {
+            where: { status: 'ACTIVE' },
+            orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+          },
+        },
+        orderBy: [{ createdAt: 'desc' }],
+        take: 200,
+      })
+
+      const preferredCandidates = candidates.filter((table) =>
+        table.name.toLowerCase().includes('padr'),
+      )
+
+      const sortByTemplateStrength = (a: (typeof candidates)[number], b: (typeof candidates)[number]) =>
+        (b.items.length - a.items.length)
+        || (b.version - a.version)
+        || (new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+      let template = (preferredCandidates.length > 0 ? preferredCandidates : candidates)
+        .sort(sortByTemplateStrength)[0]
+
+      // Fallback final (caso não exista base demo): usa o melhor modelo global disponível.
+      if (!template) {
+        const globalCandidates = await prisma.priceTable.findMany({
+          where: {
+            deletedAt: null,
+            items: { some: { status: 'ACTIVE' } },
+          },
+          include: {
+            items: {
+              where: { status: 'ACTIVE' },
+              orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+            },
+          },
+          orderBy: [{ createdAt: 'desc' }],
+          take: 200,
+        })
+        const globalPreferred = globalCandidates.filter((table) =>
+          table.name.toLowerCase().includes('padr'),
+        )
+        template = (globalPreferred.length > 0 ? globalPreferred : globalCandidates)
+          .sort(sortByTemplateStrength)[0]
+      }
+
+      return template ?? null
+    }
+
+    const template = (await loadTemplateBySource()) ?? (await loadDefaultTemplate())
 
     const table = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const created = await tx.priceTable.create({
