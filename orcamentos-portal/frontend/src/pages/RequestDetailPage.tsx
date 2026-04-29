@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, MapPin, Calendar, User, Building2,
-  Clock, CheckCircle2, XCircle, PauseCircle, Trash2,
+  Clock, CheckCircle2, XCircle, PauseCircle, Trash2, Lock,
   ClipboardList, FileText, UserCheck, Wrench, AlertTriangle, Printer, Plus
 } from 'lucide-react'
 import {
@@ -94,9 +94,13 @@ export default function RequestDetailPage() {
   // Usa os dados do endpoint /quotes que traz o id completo
   const quotes     = quotesData.length > 0 ? quotesData : (request.quotes ?? [])
   const hasQuote   = quotes.length > 0
-  const activeQuote = quotes.find((q: any) => q.status === 'SENT')
-    ?? quotes.find((q: any) => q.status === 'DRAFT')
-    ?? quotes[0]
+  const activeQuote = role === 'CLIENT'
+    ? (quotes.find((q: any) => q.status !== 'DRAFT') ?? null)
+    : (quotes.find((q: any) => q.status === 'SENT')
+      ?? quotes.find((q: any) => q.status === 'DRAFT')
+      ?? quotes[0]
+      ?? null)
+  const canClientViewQuoteValues = role !== 'CLIENT' || (activeQuote ? activeQuote.status !== 'DRAFT' : false)
 
   const canDecide  = role === 'CLIENT' && ['QUOTE_SENT', 'ON_HOLD'].includes(request.status)
   const canAnalyse = (role === 'ANALYST' || role === 'ADMIN' || role === 'SUPER_ADMIN')
@@ -344,7 +348,7 @@ export default function RequestDetailPage() {
               <RequestStatusBadge status={request.status} />
               
               {/* Resumo visual do Total sempre visível - Pedido via feedback UX */}
-              {activeQuote && (
+              {activeQuote && canClientViewQuoteValues && (
                 <div className="flex items-center gap-1.5 ml-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full border border-emerald-200 font-bold text-sm shadow-sm">
                   Total: {formatCurrency(Number(activeQuote.totalValue ?? 0))}
                 </div>
@@ -577,7 +581,7 @@ export default function RequestDetailPage() {
             </div>
 
             {/* Orçamento resumido (se existir) */}
-            {activeQuote && (
+            {activeQuote && canClientViewQuoteValues && (
               <div className="card border-brand-200">
                 <div className="card-header items-center">
                   <span className="text-sm font-bold text-brand-700">
@@ -870,6 +874,26 @@ export default function RequestDetailPage() {
                       )}
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {role === 'CLIENT' && !canClientViewQuoteValues && hasQuote && (
+              <div className="card border-surface-200">
+                <div className="card-header items-center">
+                  <span className="text-sm font-bold text-surface-700">Orçamento</span>
+                  <span className="badge bg-surface-100 text-surface-600">Bloqueado</span>
+                </div>
+                <div className="card-body">
+                  <div className="flex items-start gap-3 rounded-lg border border-surface-200 bg-surface-50 p-3">
+                    <Lock size={16} className="text-surface-500 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-surface-700">Valores ainda não disponíveis</p>
+                      <p className="text-xs text-surface-500">
+                        Os valores do orçamento serão liberados para você quando o analista finalizar e enviar o orçamento.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
