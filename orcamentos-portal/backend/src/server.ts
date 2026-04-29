@@ -23,6 +23,13 @@ import prisma                from './infrastructure/database/prisma.js'
 import { env }               from './config/env.js'
 import type { UserRole } from './shared/types/index.js'
 
+interface HttpError extends Error {
+  statusCode?: number
+  code?: string
+  details?: unknown
+  errors?: unknown
+}
+
 const app = Fastify({
   logger: {
     level: env.LOG_LEVEL,
@@ -96,21 +103,21 @@ app.setErrorHandler((error, req, reply) => {
   }
 
   // Erros Zod que escaparam dos handlers
-  if (isObjectError(error) && error.name === 'ZodError') {
+  if (isHttpError(error) && error.name === 'ZodError') {
     return reply.status(422).send({
-      error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: (error as { errors?: unknown }).errors },
+      error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: error.errors },
     })
   }
 
   // Erros Prisma
-  if (isObjectError(error) && typeof error.message === 'string' && error.message.includes('Unique constraint')) {
+  if (isHttpError(error) && typeof error.message === 'string' && error.message.includes('Unique constraint')) {
     return reply.status(409).send({
       error: { code: 'CONFLICT', message: 'Registro duplicado.' },
     })
   }
 
   // Erros do Fastify (inclui rate limit) devem preservar status HTTP.
-  if (isObjectError(error) && typeof error.statusCode === 'number' && error.statusCode >= 400 && error.statusCode < 600) {
+  if (isHttpError(error) && typeof error.statusCode === 'number' && error.statusCode >= 400 && error.statusCode < 600) {
     return reply.status(error.statusCode).send({
       error: {
         code: typeof error.code === 'string' ? error.code : 'HTTP_ERROR',
@@ -184,7 +191,7 @@ try {
   await app.listen({ port: PORT, host: HOST })
   app.log.info(`🚀 Servidor rodando em http://${HOST}:${PORT}`)
 } catch (err) {
-  if (isObjectError(err) && 'code' in err && err.code === 'EADDRINUSE') {
+  if (isHttpError(err) && err.code === 'EADDRINUSE') {
     app.log.error(`Porta ${PORT} já está em uso. Defina uma porta diferente com PORT=<porta>.`)
   } else {
     app.log.error(err)
@@ -194,8 +201,8 @@ try {
 
 export type App = typeof app
 
-function isObjectError(value: unknown): value is { name?: string; message?: string; code?: string } {
-  return typeof value === 'object' && value !== null
+function isHttpError(value: unknown): value is HttpError {
+  return value instanceof Error
 }
 
 async function pingRedis(redisUrl: string): Promise<void> {
@@ -212,7 +219,9 @@ async function pingRedis(redisUrl: string): Promise<void> {
     })
     socket.on('timeout', () => {
       socket.destroy()
-      reject(new Error('Redis timeout'))
+      const error: HttpError = new Error('Redis timeout')
+      error.statusCode = 504
+      reject(error)
     })
     socket.on('error', reject)
   })
