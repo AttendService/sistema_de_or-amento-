@@ -6,10 +6,11 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, MapPin, Calendar, User, Building2,
   Clock, CheckCircle2, XCircle, PauseCircle, Trash2,
-  ClipboardList, FileText, UserCheck, Wrench, AlertTriangle, Printer
+  ClipboardList, FileText, UserCheck, Wrench, AlertTriangle, Printer, Plus
 } from 'lucide-react'
 import {
   useRequest, useRequestHistory, useQuotes, useAssignRequest, useCreateQuote, useQuoteDecision,
+  useAddQuoteItem, useUpdateQuoteItem, useDeleteQuoteItem, usePriceTables, usePriceTable,
 } from '../hooks/queries'
 import { useRole } from '../store/auth.store'
 import {
@@ -18,7 +19,6 @@ import {
 import { formatCurrency, formatDate, formatDateTime } from '../lib/constants'
 import { api, extractApiError } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
-import QuoteBuilderPage from './QuoteBuilderPage'
 
 export default function RequestDetailPage() {
   const { id }   = useParams<{ id: string }>()
@@ -33,12 +33,30 @@ export default function RequestDetailPage() {
   const assignRequest = useAssignRequest()
   const createQuote   = useCreateQuote()
   const quoteDecision  = useQuoteDecision()
+  const addQuoteItem = useAddQuoteItem()
+  const updateQuoteItem = useUpdateQuoteItem()
+  const deleteQuoteItem = useDeleteQuoteItem()
 
   const [decisionModal, setDecisionModal] = useState<{ open: boolean; action: string } | null>(null)
   const [observations,  setObservations]  = useState('')
   const [apiError,      setApiError]      = useState('')
-  const [showQuote,     setShowQuote]     = useState(false)
-  const [quoteToOpenId,  setQuoteToOpenId] = useState('')
+  const [inlineQuoteEdit, setInlineQuoteEdit] = useState(false)
+  const [manualItem, setManualItem] = useState({
+    priceItemId: '',
+    quantity: 1,
+  })
+
+  const { data: priceTables = [] } = usePriceTables(request?.clientId ?? '', false)
+  const activePriceTable = priceTables.find((t: any) => t.status === 'ACTIVE') ?? priceTables[0]
+  const [inlineTableId, setInlineTableId] = useState('')
+  const effectiveInlineTableId = inlineTableId || activePriceTable?.id || ''
+  const { data: inlinePriceTable } = usePriceTable(
+    request?.clientId ?? '',
+    effectiveInlineTableId,
+    { includeInactive: false },
+  )
+  const inlinePriceItems = inlinePriceTable?.items ?? []
+  const selectedInlinePriceItem = inlinePriceItems.find((item: any) => item.id === manualItem.priceItemId)
 
   if (isLoading)  return <PageLoader />
   if (!request)   return <div className="p-8 text-surface-400">Solicitação não encontrada.</div>
@@ -93,17 +111,42 @@ export default function RequestDetailPage() {
 
   const handleStartQuote = async () => {
     try {
-      const quote = await createQuote.mutateAsync({ requestId: id!, data: {} })
-      setQuoteToOpenId(quote.id)
-      setShowQuote(true)
+      await createQuote.mutateAsync({ requestId: id!, data: {} })
+      setInlineQuoteEdit(true)
     } catch (err) {
       setApiError(extractApiError(err))
     }
   }
 
-  if (showQuote) {
-    const quoteId = quoteToOpenId || activeQuote?.id
-    if (quoteId) return <QuoteBuilderPage requestId={id!} quoteId={quoteId} onBack={() => setShowQuote(false)} />
+  const handleAddManualItemInline = async () => {
+    if (!id || !activeQuote?.id) return
+    if (!selectedInlinePriceItem) {
+      setApiError('Selecione um item da tabela de preços.')
+      return
+    }
+    if (manualItem.quantity <= 0) {
+      setApiError('Quantidade deve ser maior que zero.')
+      return
+    }
+    try {
+      await addQuoteItem.mutateAsync({
+        requestId: id,
+        quoteId: activeQuote.id,
+        data: {
+          origin: 'TABLE',
+          priceItemId: selectedInlinePriceItem.id,
+          serviceTypeId: selectedInlinePriceItem.serviceTypeId ?? undefined,
+          code: selectedInlinePriceItem.code || undefined,
+          description: selectedInlinePriceItem.description,
+          unit: selectedInlinePriceItem.unit,
+          quantity: Number(manualItem.quantity),
+          unitValue: Number(selectedInlinePriceItem.unitValue),
+        },
+      })
+      setManualItem({ priceItemId: '', quantity: 1 })
+    } catch (err) {
+      setApiError(extractApiError(err))
+    }
   }
 
   return (
@@ -158,9 +201,9 @@ export default function RequestDetailPage() {
               {canAnalyse && hasQuote && (
                 <button
                   className="btn-secondary btn-sm shadow-sm"
-                  onClick={() => { setQuoteToOpenId(activeQuote?.id ?? ''); setShowQuote(true) }}
+                  onClick={() => setInlineQuoteEdit((v) => !v)}
                 >
-                  <FileText size={14} /> Editar orçamento
+                  <FileText size={14} /> {inlineQuoteEdit ? 'Fechar edição' : 'Editar orçamento'}
                 </button>
               )}
               {canDecide && (
@@ -194,34 +237,34 @@ export default function RequestDetailPage() {
         {apiError && <Alert type="error" message={apiError} />}
 
         {/* Top Info Cards - Dispostos horizontalmente ocupando tela toda */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             {/* Bloco 1 — Solicitação */}
-            <div className="card">
+            <div className="card lg:col-span-4">
               <div className="card-header">
                 <span className="text-sm font-semibold flex items-center gap-2">
                   <User size={14} className="text-surface-400" /> Dados da solicitação
                 </span>
               </div>
               <div className="card-body">
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <div>
                     <dt className="text-surface-400 text-xs">Solicitante</dt>
-                    <dd className="font-medium">{request.requesterName}</dd>
+                    <dd className="font-medium truncate" title={request.requesterName}>{request.requesterName}</dd>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <dt className="text-surface-400 text-xs">E-mail</dt>
-                    <dd>{request.requesterEmail}</dd>
+                    <dd className="truncate" title={request.requesterEmail}>{request.requesterEmail}</dd>
                   </div>
                   {request.requesterPhone && (
                     <div>
                       <dt className="text-surface-400 text-xs">Telefone</dt>
-                      <dd>{request.requesterPhone}</dd>
+                      <dd className="truncate" title={request.requesterPhone}>{request.requesterPhone}</dd>
                     </div>
                   )}
                   {request.client && (
                     <div>
                       <dt className="text-surface-400 text-xs">Cliente</dt>
-                      <dd className="font-medium">{request.client.name}</dd>
+                      <dd className="font-medium truncate" title={request.client.name}>{request.client.name}</dd>
                     </div>
                   )}
                 </dl>
@@ -229,47 +272,47 @@ export default function RequestDetailPage() {
             </div>
 
             {/* Bloco 2 — Cliente final + endereço */}
-            <div className="card">
+            <div className="card lg:col-span-5">
               <div className="card-header">
                 <span className="text-sm font-semibold flex items-center gap-2">
                   <Building2 size={14} className="text-surface-400" /> Cliente final / Localidade
                 </span>
               </div>
-              <div className="card-body space-y-4">
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+              <div className="card-body space-y-3">
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <div>
                     <dt className="text-surface-400 text-xs">Nome</dt>
-                    <dd className="font-medium">{request.finalClientName}</dd>
+                    <dd className="font-medium truncate" title={request.finalClientName}>{request.finalClientName}</dd>
                   </div>
                   {request.finalClientCompany && (
                     <div>
                       <dt className="text-surface-400 text-xs">Empresa</dt>
-                      <dd>{request.finalClientCompany}</dd>
+                      <dd className="truncate" title={request.finalClientCompany}>{request.finalClientCompany}</dd>
                     </div>
                   )}
                   {request.finalClientContact && (
                     <div>
                       <dt className="text-surface-400 text-xs">Contato local</dt>
-                      <dd>{request.finalClientContact}</dd>
+                      <dd className="truncate" title={request.finalClientContact}>{request.finalClientContact}</dd>
                     </div>
                   )}
                   {request.finalClientPhone && (
                     <div>
                       <dt className="text-surface-400 text-xs">Telefone local</dt>
-                      <dd>{request.finalClientPhone}</dd>
+                      <dd className="truncate" title={request.finalClientPhone}>{request.finalClientPhone}</dd>
                     </div>
                   )}
                 </dl>
 
                 {request.street && (
-                  <div className="flex items-start gap-2 text-sm p-3 bg-surface-50 rounded-lg">
+                  <div className="flex items-start gap-2 text-sm p-2.5 bg-surface-50 rounded-lg">
                     <MapPin size={14} className="text-surface-400 flex-shrink-0 mt-0.5" />
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-medium">
                         {request.street}{request.streetNumber ? `, ${request.streetNumber}` : ''}
                         {request.complement ? ` — ${request.complement}` : ''}
                       </p>
-                      <p className="text-surface-500">
+                      <p className="text-surface-500 break-words">
                         {[request.neighborhood, request.city, request.state].filter(Boolean).join(', ')}
                         {request.zipCode ? ` — CEP ${request.zipCode}` : ''}
                       </p>
@@ -285,14 +328,14 @@ export default function RequestDetailPage() {
               </div>
             </div>
             {/* Bloco 3 — Datas (movido para grid Topo) */}
-            <div className="card h-full">
+            <div className="card h-full lg:col-span-3">
               <div className="card-header">
                 <span className="text-sm font-semibold flex items-center gap-2">
                   <Calendar size={14} className="text-surface-400" /> Datas
                 </span>
               </div>
               <div className="card-body">
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <div>
                     <dt className="text-surface-400 text-xs text-nowrap">Data da solicitação</dt>
                     <dd className="font-medium mt-0.5">{formatDate(request.createdAt)}</dd>
@@ -369,9 +412,9 @@ export default function RequestDetailPage() {
                     {canAnalyse && activeQuote.status === 'DRAFT' && (
                       <button
                         className="btn-secondary btn-sm"
-                        onClick={() => { setQuoteToOpenId(activeQuote.id); setShowQuote(true) }}
+                        onClick={() => setInlineQuoteEdit((v) => !v)}
                       >
-                        <FileText size={14} /> Editar
+                        <FileText size={14} /> {inlineQuoteEdit ? 'Fechar edição' : 'Editar'}
                       </button>
                     )}
                   </div>
@@ -389,6 +432,7 @@ export default function RequestDetailPage() {
                             <th className="text-right">Qtd</th>
                             <th className="text-right">Valor unit.</th>
                             <th className="text-right">Total</th>
+                            {inlineQuoteEdit && canAnalyse && activeQuote.status === 'DRAFT' && <th className="text-right">Ações</th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -401,13 +445,153 @@ export default function RequestDetailPage() {
                                 </p>
                               </td>
                               <td className="text-xs text-surface-500">{item.serviceType?.name ?? '—'}</td>
-                              <td className="text-right text-sm">{Number(item.quantity)}</td>
-                              <td className="text-right text-sm font-medium">{formatCurrency(Number(item.unitValue ?? 0))}</td>
+                              <td className="text-right text-sm">
+                                {inlineQuoteEdit && canAnalyse && activeQuote.status === 'DRAFT' ? (
+                                  <input
+                                    type="number"
+                                    min="0.001"
+                                    step="0.001"
+                                    defaultValue={Number(item.quantity)}
+                                    className="form-input text-xs py-1 w-20 ml-auto text-right"
+                                    onBlur={async (e) => {
+                                      const qty = Number(e.target.value)
+                                      if (!Number.isFinite(qty) || qty <= 0) return
+                                      try {
+                                        await updateQuoteItem.mutateAsync({
+                                          requestId: id!,
+                                          quoteId: activeQuote.id,
+                                          itemId: item.id,
+                                          data: { quantity: qty },
+                                        })
+                                      } catch (err) {
+                                        setApiError(extractApiError(err))
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  Number(item.quantity)
+                                )}
+                              </td>
+                              <td className="text-right text-sm font-medium">
+                                {inlineQuoteEdit && canAnalyse && activeQuote.status === 'DRAFT' ? (
+                                  <input
+                                    type="number"
+                                    min="0.01"
+                                    step="0.01"
+                                    defaultValue={Number(item.unitValue ?? 0)}
+                                    className="form-input text-xs py-1 w-28 ml-auto text-right"
+                                    onBlur={async (e) => {
+                                      const val = Number(e.target.value)
+                                      if (!Number.isFinite(val) || val <= 0) return
+                                      try {
+                                        await updateQuoteItem.mutateAsync({
+                                          requestId: id!,
+                                          quoteId: activeQuote.id,
+                                          itemId: item.id,
+                                          data: { unitValue: val },
+                                        })
+                                      } catch (err) {
+                                        setApiError(extractApiError(err))
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  formatCurrency(Number(item.unitValue ?? 0))
+                                )}
+                              </td>
                               <td className="text-right text-sm font-semibold">{formatCurrency(Number(item.totalValue ?? 0))}</td>
+                              {inlineQuoteEdit && canAnalyse && activeQuote.status === 'DRAFT' && (
+                                <td className="text-right">
+                                  <button
+                                    className="btn-ghost btn-sm text-red-500 hover:text-red-600"
+                                    onClick={async () => {
+                                      try {
+                                        await deleteQuoteItem.mutateAsync({
+                                          requestId: id!,
+                                          quoteId: activeQuote.id,
+                                          itemId: item.id,
+                                        })
+                                      } catch (err) {
+                                        setApiError(extractApiError(err))
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+
+                  {inlineQuoteEdit && canAnalyse && activeQuote.status === 'DRAFT' && (
+                    <div className="mt-4 border-t border-surface-100 pt-4 space-y-3">
+                      <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Adicionar item da tabela de preços</p>
+                      <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
+                        {priceTables.length > 1 && (
+                          <select
+                            value={inlineTableId}
+                            onChange={(e) => {
+                              setInlineTableId(e.target.value)
+                              setManualItem((v) => ({ ...v, priceItemId: '' }))
+                            }}
+                            className="form-input text-xs"
+                          >
+                            {priceTables.map((t: any) => (
+                              <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                          </select>
+                        )}
+                        <select
+                          value={manualItem.priceItemId}
+                          onChange={(e) => setManualItem((v) => ({ ...v, priceItemId: e.target.value }))}
+                          className={`form-input text-xs ${priceTables.length > 1 ? 'md:col-span-3' : 'md:col-span-4'}`}
+                        >
+                          <option value="">Selecione item cadastrado...</option>
+                          {inlinePriceItems.map((item: any) => (
+                            <option key={item.id} value={item.id}>
+                              {item.code ? `${item.code} · ` : ''}{item.description}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          min="0.001"
+                          step="0.001"
+                          value={manualItem.quantity}
+                          onChange={(e) => setManualItem((v) => ({ ...v, quantity: Number(e.target.value) }))}
+                          className="form-input text-xs"
+                          placeholder="Qtd"
+                        />
+                        <input
+                          value={selectedInlinePriceItem?.unit ?? ''}
+                          readOnly
+                          className="form-input text-xs"
+                          placeholder="Unidade"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                        <input
+                          value={selectedInlinePriceItem ? formatCurrency(Number(selectedInlinePriceItem.unitValue)) : ''}
+                          readOnly
+                          className="form-input text-xs"
+                          placeholder="Valor unitário"
+                        />
+                        <input
+                          value={selectedInlinePriceItem?.description ?? ''}
+                          readOnly
+                          className="form-input text-xs md:col-span-2"
+                          placeholder="Descrição"
+                        />
+                        <div className="flex justify-end">
+                          <button className="btn-primary btn-sm" onClick={handleAddManualItemInline} disabled={addQuoteItem.isPending}>
+                            {addQuoteItem.isPending ? <Spinner size="sm" /> : <Plus size={13} />} Adicionar item
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
 
