@@ -22,11 +22,11 @@ import { extractApiError } from '../lib/api'
 import { useRole } from '../store/auth.store'
 
 function isCommercial(role?: string) {
-  return role === 'COMMERCIAL' || role === 'COMMERCIAL_MANAGER' || role === 'ADMIN'
+  return role === 'COMMERCIAL' || role === 'COMMERCIAL_MANAGER' || role === 'ADMIN' || role === 'SUPER_ADMIN'
 }
 
 function isPresales(role?: string) {
-  return role === 'PRESALES' || role === 'PRESALES_MANAGER' || role === 'ADMIN'
+  return role === 'PRESALES' || role === 'PRESALES_MANAGER' || role === 'ADMIN' || role === 'SUPER_ADMIN'
 }
 
 type WizardField = {

@@ -70,6 +70,10 @@ app.decorate('requireRole', (...roles: UserRole[]) => {
     if (!user) {
       return reply.status(401).send({ error: { code: 'UNAUTHORIZED', message: 'Não autenticado.' } })
     }
+    // SUPER_ADMIN possui acesso irrestrito em todo o sistema.
+    if (user.role === 'SUPER_ADMIN') {
+      return
+    }
     if (!roles.includes(user.role)) {
       return reply.status(403).send({ error: { code: 'FORBIDDEN', message: 'Acesso negado para este perfil.' } })
     }

@@ -71,7 +71,7 @@ export default function ClientsPage() {
           <h1 className="font-semibold text-surface-900">Clientes</h1>
           {!isLoading && <p className="text-xs text-surface-400">{total} clientes</p>}
         </div>
-        {role === 'ADMIN' && (
+        {(role === 'ADMIN' || role === 'SUPER_ADMIN') && (
           <button className="btn-primary btn-sm" onClick={() => setCreateModal(true)}>
             <Plus size={14} /> Novo cliente
           </button>
@@ -160,7 +160,7 @@ export default function ClientsPage() {
                         <span className={`badge ${detail.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-100 text-surface-500'}`}>
                           {detail.isActive ? 'Ativo' : 'Inativo'}
                         </span>
-                        {role === 'ADMIN' && (
+                        {(role === 'ADMIN' || role === 'SUPER_ADMIN') && (
                           <button className="btn-ghost btn-sm text-red-500 p-1.5 hover:bg-red-50"
                             onClick={() => setDeleteModal(true)} title="Excluir">
                             <Trash2 size={16} />
@@ -238,7 +238,7 @@ export default function ClientsPage() {
                   <div className="card">
                     <div className="card-header">
                       <span className="text-sm font-semibold">Tabelas de preços</span>
-                      {role === 'ADMIN' && (
+                      {(role === 'ADMIN' || role === 'SUPER_ADMIN') && (
                         <button className="btn-ghost btn-sm text-xs"
                           onClick={() => navigate('/price-tables')}>
                           Gerenciar →

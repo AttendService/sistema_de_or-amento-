@@ -164,7 +164,7 @@ export async function userRoutes(app: FastifyInstance) {
     const requester = req.user as JwtPayload
 
     // Apenas admin pode alterar role/status; outros usuários só atualizam a si mesmos
-    if (requester.role !== 'ADMIN' && requester.sub !== id) {
+    if (requester.role !== 'ADMIN' && requester.role !== 'SUPER_ADMIN' && requester.sub !== id) {
       throw new ForbiddenError('Acesso negado.')
     }
 
@@ -177,7 +177,7 @@ export async function userRoutes(app: FastifyInstance) {
     const data = result.data
 
     // Não-admin não pode alterar role ou status
-    if (requester.role !== 'ADMIN') {
+    if (requester.role !== 'ADMIN' && requester.role !== 'SUPER_ADMIN') {
       delete data.role
       delete data.status
     }

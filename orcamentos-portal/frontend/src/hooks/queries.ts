@@ -64,6 +64,17 @@ export const useCreatePriceTable = () => {
   })
 }
 
+export const useDeletePriceTable = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ clientId, tableId }: { clientId: string; tableId: string }) =>
+      api.delete(`/api/v1/clients/${clientId}/price-tables/${tableId}`),
+    onSuccess: (_, { clientId }) => {
+      qc.invalidateQueries({ queryKey: ['price-tables', clientId] })
+    },
+  })
+}
+
 export const useCreatePriceItem = () => {
   const qc = useQueryClient()
   return useMutation({
@@ -122,6 +133,13 @@ export const useCreateRequest = () => {
     onSuccess:  () => qc.invalidateQueries({ queryKey: ['requests'] }),
   })
 }
+
+export const useFinalClients = (params?: Record<string, unknown>, options?: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: ['requests', 'final-clients', params],
+    queryFn: () => api.get('/api/v1/requests/final-clients', { params }).then(r => r.data),
+    enabled: options?.enabled ?? true,
+  })
 
 export const useChangeRequestStatus = () => {
   const qc = useQueryClient()

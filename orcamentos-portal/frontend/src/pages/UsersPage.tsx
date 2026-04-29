@@ -12,19 +12,13 @@ const ROLE_LABEL: Record<string, string> = {
   CLIENT: 'Cliente',
   ANALYST: 'Analista',
   ADMIN: 'Administrador',
-  COMMERCIAL: 'Comercial',
-  COMMERCIAL_MANAGER: 'Gestor Comercial',
-  PRESALES: 'Pré-vendas',
-  PRESALES_MANAGER: 'Gestor Pré-vendas',
+  SUPER_ADMIN: 'Super Administrador',
 }
 const ROLE_COLOR: Record<string, string> = {
   CLIENT: 'bg-blue-50 text-blue-700',
   ANALYST: 'bg-purple-50 text-purple-700',
   ADMIN: 'bg-amber-50 text-amber-700',
-  COMMERCIAL: 'bg-cyan-50 text-cyan-700',
-  COMMERCIAL_MANAGER: 'bg-cyan-100 text-cyan-800',
-  PRESALES: 'bg-emerald-50 text-emerald-700',
-  PRESALES_MANAGER: 'bg-emerald-100 text-emerald-800',
+  SUPER_ADMIN: 'bg-red-50 text-red-700',
 }
 const STATUS_COLOR: Record<string, string> = {
   ACTIVE: 'text-emerald-600', INACTIVE: 'text-surface-400', SUSPENDED: 'text-red-500',
@@ -123,10 +117,6 @@ export default function UsersPage() {
             <option value="CLIENT">Cliente</option>
             <option value="ANALYST">Analista</option>
             <option value="ADMIN">Administrador</option>
-            <option value="COMMERCIAL">Comercial</option>
-            <option value="COMMERCIAL_MANAGER">Gestor Comercial</option>
-            <option value="PRESALES">Pré-vendas</option>
-            <option value="PRESALES_MANAGER">Gestor Pré-vendas</option>
           </select>
         </div>
 
@@ -235,10 +225,6 @@ export default function UsersPage() {
                 <option value="CLIENT">Cliente</option>
                 <option value="ANALYST">Analista</option>
                 <option value="ADMIN">Administrador</option>
-                <option value="COMMERCIAL">Comercial</option>
-                <option value="COMMERCIAL_MANAGER">Gestor Comercial</option>
-                <option value="PRESALES">Pré-vendas</option>
-                <option value="PRESALES_MANAGER">Gestor Pré-vendas</option>
               </select>
             </FormField>
             <FormField label="Status">

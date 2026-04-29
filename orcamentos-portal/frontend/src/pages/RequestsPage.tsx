@@ -12,8 +12,8 @@ import {
 import { formatDate, formatDateTime } from '../lib/constants'
 
 const STATUS_OPTIONS = [
-  { value: 'REQUESTED,IN_ANALYSIS,QUOTE_IN_PROGRESS', label: 'Pendentes de ação (Minha fila)' },
   { value: '', label: 'Todos os status' },
+  { value: 'REQUESTED,IN_ANALYSIS,QUOTE_IN_PROGRESS', label: 'Pendentes de ação (Minha fila)' },
   { value: 'REQUESTED',         label: 'Solicitado'              },
   { value: 'IN_ANALYSIS',       label: 'Em análise'              },
   { value: 'QUOTE_IN_PROGRESS', label: 'Orçamento em elaboração' },
@@ -40,7 +40,7 @@ export default function RequestsPage() {
 
   const [page,    setPage]    = useState(1)
   const [q,       setQ]       = useState('')
-  const [status,  setStatus]  = useState(initialStatus !== null ? initialStatus : (role !== 'CLIENT' ? 'REQUESTED,IN_ANALYSIS,QUOTE_IN_PROGRESS' : ''))
+  const [status,  setStatus]  = useState(initialStatus !== null ? initialStatus : '')
   const [urgent,  setUrgent]  = useState<boolean | undefined>(initialUrgent === 'true' ? true : initialUrgent === 'false' ? false : undefined)
   const [sort,    setSort]    = useState('createdAt')
   const [showFilters, setShowFilters] = useState(!!initialStatus || !!initialUrgent)
@@ -141,7 +141,7 @@ export default function RequestsPage() {
                 </div>
                 <div className="flex items-end">
                   <button className="btn-ghost btn-sm" onClick={() => {
-                    setStatus(role !== 'CLIENT' ? 'REQUESTED,IN_ANALYSIS,QUOTE_IN_PROGRESS' : ''); setUrgent(undefined); setSort('createdAt'); setQ(''); setPage(1)
+                    setStatus(''); setUrgent(undefined); setSort('createdAt'); setQ(''); setPage(1)
                   }}>
                     Limpar filtros
                   </button>

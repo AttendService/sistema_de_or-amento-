@@ -13,6 +13,7 @@ export type UserRole =
   | 'CLIENT'
   | 'ANALYST'
   | 'ADMIN'
+  | 'SUPER_ADMIN'
   | 'COMMERCIAL'
   | 'COMMERCIAL_MANAGER'
   | 'PRESALES'

@@ -14,7 +14,7 @@ import { formatCurrency, formatDate, formatDateTime } from '../lib/constants'
 export default function QuotesListPage() {
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
-  const [statusFilter, setStatusFilter] = useState('QUOTE_SENT')
+  const [statusFilter, setStatusFilter] = useState('')
 
   // Para cliente: mostra solicitações com orçamento (todos os status relevantes)
   const { data, isLoading } = useRequests({

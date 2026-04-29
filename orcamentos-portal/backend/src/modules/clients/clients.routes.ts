@@ -8,19 +8,35 @@ import { NotFoundError, ConflictError } from '../../shared/errors/index.js'
 import { parsePagination, buildPaginatedResult, logAudit } from '../../shared/utils/index.js'
 import type { JwtPayload } from '../../shared/types/index.js'
 
+const IdSchema = z.string().regex(
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+  'ID inválido.',
+)
+
+const optionalText = (max: number) =>
+  z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.string().max(max).optional().nullable(),
+  )
+
+const optionalEmail = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z.string().email().optional().nullable(),
+)
+
 const ClientSchema = z.object({
   name:      z.string().min(2).max(255),
-  tradeName: z.string().max(255).optional().nullable(),
-  document:  z.string().max(18).optional().nullable(),
-  email:     z.string().email().optional().nullable(),
-  phone:     z.string().max(20).optional().nullable(),
+  tradeName: optionalText(255),
+  document:  optionalText(18),
+  email:     optionalEmail,
+  phone:     optionalText(20),
 })
 
 const UpdateClientSchema = ClientSchema.partial().extend({
   isActive: z.boolean().optional(),
 })
 
-const ParamsSchema = z.object({ id: z.string().uuid() })
+const ParamsSchema = z.object({ id: IdSchema })
 
 const QuerySchema = z.object({
   page:     z.coerce.number().optional(),

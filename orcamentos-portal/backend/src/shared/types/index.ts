@@ -2,7 +2,7 @@
 // Tipos globais — Portal de Orçamentos
 // ============================================================
 
-export type UserRole = 'CLIENT' | 'ANALYST' | 'ADMIN'
+export type UserRole = 'CLIENT' | 'ANALYST' | 'ADMIN' | 'SUPER_ADMIN'
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
 
 export type RequestStatus =

@@ -40,7 +40,7 @@ export function requireRole(...roles: UserRole[]) {
       })
       return
     }
-    if (!roles.includes(user.role)) {
+    if (user.role !== 'SUPER_ADMIN' && !roles.includes(user.role)) {
       reply.status(403).send({
         error: { code: 'FORBIDDEN', message: 'Acesso negado para este perfil.' },
       })
@@ -53,7 +53,7 @@ export function requireRole(...roles: UserRole[]) {
 // Valida que o clientId do parâmetro pertence ao usuário autenticado
 // Admins e Analysts têm acesso irrestrito
 export function assertClientAccess(user: AuthUser, clientId: string): void {
-  if (user.role === 'ADMIN' || user.role === 'ANALYST') return
+  if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN' || user.role === 'ANALYST') return
   if (!user.clientIds.includes(clientId)) {
     throw new ForbiddenError('Acesso negado a este cliente.')
   }
@@ -62,7 +62,7 @@ export function assertClientAccess(user: AuthUser, clientId: string): void {
 // Valida que o userId do parâmetro é o próprio usuário (ou admin)
 export function assertSelfOrAdmin(user: AuthUser, targetUserId: string): void {
   const userId = user.id ?? user.sub
-  if (user.role === 'ADMIN') return
+  if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') return
   if (userId !== targetUserId) {
     throw new ForbiddenError('Acesso negado.')
   }

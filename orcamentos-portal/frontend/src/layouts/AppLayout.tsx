@@ -68,12 +68,14 @@ export default function AppLayout() {
     ? PRESALES_NAV
     : role === 'CLIENT'
     ? CLIENT_NAV
-    : role === 'ADMIN'
+    : role === 'ADMIN' || role === 'SUPER_ADMIN'
     ? ADMIN_NAV
     : ANALYST_NAV
 
   const roleLabel = role === 'CLIENT'
     ? 'Cliente'
+    : role === 'SUPER_ADMIN'
+    ? 'Super Administrador'
     : role === 'ADMIN'
     ? 'Administrador'
     : role === 'ANALYST'
@@ -91,16 +93,10 @@ export default function AppLayout() {
   const [isDark, setIsDark] = React.useState(false)
 
   React.useEffect(() => {
-    const savedTheme = localStorage.getItem('theme')
-    if (savedTheme === 'dark') {
-      document.documentElement.classList.add('dark')
-      setIsDark(true)
-    } else if (savedTheme === 'light') {
-      document.documentElement.classList.remove('dark')
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      document.documentElement.classList.add('dark')
-      setIsDark(true)
-    }
+    // Política de segurança/UX: ao entrar no sistema sempre iniciar no tema claro.
+    document.documentElement.classList.remove('dark')
+    localStorage.setItem('theme', 'light')
+    setIsDark(false)
   }, [])
 
   const toggleTheme = () => {

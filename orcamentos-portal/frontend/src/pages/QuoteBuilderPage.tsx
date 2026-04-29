@@ -54,10 +54,10 @@ export default function QuoteBuilderPage({ requestId, quoteId, onBack }: Props) 
   )
   const priceItems = priceTableData?.items ?? []
 
-  // Item manual
+  // Adição rápida por modal (itens da tabela de preços)
   const [manualModal, setManualModal] = useState(false)
   const [manualItem,  setManualItem]  = useState({
-    description: '', unit: 'un', quantity: 1, unitValue: 0, serviceTypeId: '', code: '',
+    priceItemId: '', quantity: 1, unitValue: 0,
   })
 
   // Edição inline de item
@@ -138,13 +138,28 @@ export default function QuoteBuilderPage({ requestId, quoteId, onBack }: Props) 
   }
 
   const handleAddManual = async () => {
+    const selectedPriceItem = priceItems.find((item: any) => item.id === manualItem.priceItemId)
+    if (!selectedPriceItem) {
+      setApiError('Selecione um item da tabela de preços para adicionar.')
+      return
+    }
+
     try {
       await addItem.mutateAsync({
         requestId, quoteId,
-        data: { ...manualItem, origin: 'MANUAL', unitValue: Number(manualItem.unitValue) },
+        data: {
+          priceItemId: selectedPriceItem.id,
+          serviceTypeId: selectedPriceItem.serviceTypeId,
+          origin: 'TABLE',
+          code: selectedPriceItem.code,
+          description: selectedPriceItem.description,
+          unit: selectedPriceItem.unit,
+          quantity: Number(manualItem.quantity),
+          unitValue: Number(manualItem.unitValue),
+        },
       })
       setManualModal(false)
-      setManualItem({ description: '', unit: 'un', quantity: 1, unitValue: 0, serviceTypeId: '', code: '' })
+      setManualItem({ priceItemId: '', quantity: 1, unitValue: 0 })
     } catch (err) { setApiError(extractApiError(err)) }
   }
 
@@ -308,7 +323,7 @@ export default function QuoteBuilderPage({ requestId, quoteId, onBack }: Props) 
                   </div>
 
                   <button className="btn-secondary btn-sm w-full" onClick={() => setManualModal(true)}>
-                    <Plus size={13} /> Item manual
+                    <Plus size={13} /> Adicionar item da tabela
                   </button>
                 </div>
               </div>
@@ -487,7 +502,7 @@ export default function QuoteBuilderPage({ requestId, quoteId, onBack }: Props) 
       </div>
 
       {/* Modal — Item manual */}
-      <Modal open={manualModal} onClose={() => setManualModal(false)} title="Adicionar item manual"
+      <Modal open={manualModal} onClose={() => setManualModal(false)} title="Adicionar item da tabela"
         footer={
           <>
             <button className="btn-secondary" onClick={() => setManualModal(false)}>Cancelar</button>
@@ -498,23 +513,29 @@ export default function QuoteBuilderPage({ requestId, quoteId, onBack }: Props) 
         }
       >
         <div className="space-y-3">
-          <FormField label="Código (opcional)">
-            <input value={manualItem.code} onChange={e => setManualItem(v => ({ ...v, code: e.target.value }))}
-              className="form-input" placeholder="MAN-001" />
+          <FormField label="Item da tabela de preços" required>
+            <select
+              value={manualItem.priceItemId}
+              onChange={e => {
+                const selectedId = e.target.value
+                const selected = priceItems.find((item: any) => item.id === selectedId)
+                setManualItem((v) => ({
+                  ...v,
+                  priceItemId: selectedId,
+                  unitValue: selected ? Number(parseFloat(selected.unitValue).toFixed(2)) : v.unitValue,
+                }))
+              }}
+              className="form-input appearance-none"
+            >
+              <option value="">Selecione...</option>
+              {priceItems.map((item: any) => (
+                <option key={item.id} value={item.id}>
+                  {item.code ? `${item.code} · ` : ''}{item.description}
+                </option>
+              ))}
+            </select>
           </FormField>
-          <FormField label="Descrição" required>
-            <input value={manualItem.description}
-              onChange={e => setManualItem(v => ({ ...v, description: e.target.value }))}
-              className="form-input" placeholder="Descrição do serviço ou material" />
-          </FormField>
-          <div className="grid grid-cols-3 gap-3">
-            <FormField label="Unidade">
-              <select value={manualItem.unit} onChange={e => setManualItem(v => ({ ...v, unit: e.target.value }))}
-                className="form-input appearance-none">
-                {['un','m','m²','m³','h','cx','kg','l','vb'].map(u => <option key={u}>{u}</option>)}
-                <option>km</option>
-              </select>
-            </FormField>
+          <div className="grid grid-cols-2 gap-3">
             <FormField label="Quantidade">
               <input type="number" min="0.001" step="0.001" value={manualItem.quantity}
                 onChange={e => setManualItem(v => ({ ...v, quantity: Number(e.target.value) }))}
@@ -526,6 +547,9 @@ export default function QuoteBuilderPage({ requestId, quoteId, onBack }: Props) 
                 className="form-input" />
             </FormField>
           </div>
+          <p className="text-xs text-surface-400">
+            Os itens seguem o cadastro da tabela de preços do cliente, mantendo o padrão do sistema.
+          </p>
         </div>
       </Modal>
 

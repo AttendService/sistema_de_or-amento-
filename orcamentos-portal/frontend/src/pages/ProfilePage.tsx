@@ -80,6 +80,7 @@ export default function ProfilePage() {
   }
 
   const roleLabel = user?.role === 'CLIENT' ? 'Cliente'
+    : user?.role === 'SUPER_ADMIN' ? 'Super Administrador'
     : user?.role === 'ADMIN' ? 'Administrador' : 'Analista'
 
   return (

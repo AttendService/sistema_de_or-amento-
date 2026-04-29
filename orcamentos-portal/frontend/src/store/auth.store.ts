@@ -17,6 +17,7 @@ export interface AuthUser {
     | 'CLIENT'
     | 'ANALYST'
     | 'ADMIN'
+    | 'SUPER_ADMIN'
     | 'COMMERCIAL'
     | 'COMMERCIAL_MANAGER'
     | 'PRESALES'

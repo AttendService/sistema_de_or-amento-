@@ -9,7 +9,7 @@ import { z } from 'zod'
 import {
   ChevronLeft, Check, Send, User, Building2, MapPin, Wrench, Zap,
 } from 'lucide-react'
-import { useCreateRequest, useServiceTypes, useClients } from '../hooks/queries'
+import { useCreateRequest, useServiceTypes, useClients, useFinalClients } from '../hooks/queries'
 import { useAuthStore, useRole } from '../store/auth.store'
 import { Alert, FormField, Spinner } from '../components/ui'
 import { extractApiError } from '../lib/api'
@@ -109,6 +109,8 @@ export default function NewRequestPage() {
   const role     = useRole()
   const user     = useAuthStore(s => s.user)
   const [apiError, setApiError] = useState('')
+  const [cepLoading, setCepLoading] = useState(false)
+  const [cepError, setCepError] = useState('')
 
   const createRequest = useCreateRequest()
   const { data: serviceTypesData } = useServiceTypes()
@@ -121,7 +123,7 @@ export default function NewRequestPage() {
   const missingClientLink = role === 'CLIENT' && !defaultClientId
 
   const {
-    register, handleSubmit, control, setValue,
+    register, handleSubmit, control, setValue, watch,
     formState: { errors },
   } = useForm<FormInput, unknown, FormData>({
     resolver: zodResolver(schema),
@@ -140,6 +142,17 @@ export default function NewRequestPage() {
     }
   }, [defaultClientId, role, setValue])
 
+  const selectedClientId = watch('clientId')
+  const { data: finalClients = [] } = useFinalClients(
+    { clientId: selectedClientId || undefined },
+    { enabled: !!selectedClientId },
+  )
+  const [selectedFinalClientKey, setSelectedFinalClientKey] = useState('')
+
+  useEffect(() => {
+    setSelectedFinalClientKey('')
+  }, [selectedClientId])
+
   const onSubmit = async (data: FormData) => {
     setApiError('')
     try {
@@ -154,6 +167,40 @@ export default function NewRequestPage() {
       navigate(`/requests/${result.id}`)
     } catch (err) {
       setApiError(extractApiError(err))
+    }
+  }
+
+  const handleZipCodeBlur = async (rawZipCode: string) => {
+    const zipCode = rawZipCode.replace(/\D/g, '')
+    if (!zipCode) {
+      setCepError('')
+      return
+    }
+
+    if (zipCode.length !== 8) {
+      setCepError('CEP inválido. Informe 8 dígitos.')
+      return
+    }
+
+    setCepError('')
+    setCepLoading(true)
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${zipCode}/json/`)
+      const data = await res.json()
+
+      if (!res.ok || data?.erro) {
+        setCepError('CEP não encontrado.')
+        return
+      }
+
+      setValue('street', data.logradouro ?? '', { shouldValidate: true })
+      setValue('neighborhood', data.bairro ?? '', { shouldValidate: true })
+      setValue('city', data.localidade ?? '', { shouldValidate: true })
+      setValue('state', data.uf ?? '', { shouldValidate: true })
+    } catch (_error) {
+      setCepError('Não foi possível consultar o CEP no momento.')
+    } finally {
+      setCepLoading(false)
     }
   }
 
@@ -213,7 +260,7 @@ export default function NewRequestPage() {
                 <div className="p-4 space-y-3">
 
                   {/* Seletor cliente (ANALYST/ADMIN) */}
-                  {(role === 'ANALYST' || role === 'ADMIN') && (
+                  {(role === 'ANALYST' || role === 'ADMIN' || role === 'SUPER_ADMIN') && (
                     <Field label="Empresa / Cliente" required error={errors.clientId?.message}>
                       <select {...register('clientId')} className={inputCls(errors.clientId?.message)}>
                         <option value="">Selecione...</option>
@@ -251,6 +298,35 @@ export default function NewRequestPage() {
               <div className="card overflow-hidden">
                 <SectionLabel icon={<Building2 size={13} />} title="Cliente final" />
                 <div className="p-4 space-y-3">
+                  <Field label="Cliente final já cadastrado nesta conta">
+                    <select
+                      value={selectedFinalClientKey}
+                      onChange={(e) => {
+                        const selectedKey = e.target.value
+                        setSelectedFinalClientKey(selectedKey)
+                        const selected = (finalClients as any[]).find((fc) => (
+                          `${fc.finalClientName}::${fc.finalClientDocument ?? ''}` === selectedKey
+                        ))
+                        if (!selected) return
+                        setValue('finalClientName', selected.finalClientName ?? '', { shouldValidate: true })
+                        setValue('finalClientCompany', selected.finalClientCompany ?? '', { shouldValidate: true })
+                        setValue('finalClientDocument', selected.finalClientDocument ?? '', { shouldValidate: true })
+                        setValue('finalClientContact', selected.finalClientContact ?? '', { shouldValidate: true })
+                        setValue('finalClientPhone', selected.finalClientPhone ?? '', { shouldValidate: true })
+                      }}
+                      className={inputCls()}
+                    >
+                      <option value="">Selecione para preencher automaticamente</option>
+                      {(finalClients as any[]).map((fc) => {
+                        const key = `${fc.finalClientName}::${fc.finalClientDocument ?? ''}`
+                        return (
+                          <option key={key} value={key}>
+                            {fc.finalClientName}{fc.finalClientDocument ? ` · ${fc.finalClientDocument}` : ''}
+                          </option>
+                        )
+                      })}
+                    </select>
+                  </Field>
                   <div className="grid grid-cols-2 gap-3">
                     <Field label="Nome" required error={errors.finalClientName?.message}>
                       <input {...register('finalClientName')} className={inputCls(errors.finalClientName?.message)} placeholder="Nome completo" />
@@ -278,8 +354,18 @@ export default function NewRequestPage() {
                   <div className="grid grid-cols-4 gap-2">
                     <div className="col-span-1">
                       <Field label="CEP">
-                        <input {...register('zipCode')} className={inputCls()} placeholder="00000-000" />
+                        <input
+                          {...register('zipCode', {
+                            onBlur: (e) => {
+                              void handleZipCodeBlur(e.target.value)
+                            },
+                          })}
+                          className={inputCls()}
+                          placeholder="00000-000"
+                        />
                       </Field>
+                      {cepLoading && <p className="mt-0.5 text-[11px] text-surface-400">Consultando CEP...</p>}
+                      {!cepLoading && cepError && <p className="mt-0.5 text-[11px] text-red-500">{cepError}</p>}
                     </div>
                     <div className="col-span-3">
                       <Field label="Endereço">
@@ -345,18 +431,30 @@ export default function NewRequestPage() {
                         control={control}
                         render={({ field }) => (
                           <>
-                            <select
-                              value={field.value?.[0] || ''}
-                              onChange={(e) => field.onChange(e.target.value ? [e.target.value] : [])}
-                              className={inputCls(errors.serviceTypeIds?.message)}
-                            >
-                              <option value="">Selecione...</option>
-                              {serviceTypes.map((st: any) => (
-                                <option key={st.id} value={st.id}>
-                                  {st.name}
-                                </option>
-                              ))}
-                            </select>
+                            <div className="space-y-2">
+                              <div className={`${inputCls(errors.serviceTypeIds?.message)} p-2 max-h-44 overflow-y-auto`}>
+                                {serviceTypes.length === 0 ? (
+                                  <p className="text-xs text-surface-400">Nenhum tipo de serviço ativo.</p>
+                                ) : (
+                                  <div className="space-y-1">
+                                    {serviceTypes.map((st: any) => {
+                                      const checked = field.value?.includes(st.id) ?? false
+                                      return (
+                                        <label key={st.id} className="flex items-center gap-2 text-sm cursor-pointer p-1 rounded hover:bg-surface-50">
+                                          <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={() => toggle(st.id, field.value ?? [], field.onChange)}
+                                          />
+                                          <span>{st.name}</span>
+                                        </label>
+                                      )
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-surface-400">Selecione um ou mais tipos de serviço.</p>
+                            </div>
                             {errors.serviceTypeIds?.message && (
                               <p className="mt-1.5 text-[11px] text-red-500">{errors.serviceTypeIds.message}</p>
                             )}

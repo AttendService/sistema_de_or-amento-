@@ -81,8 +81,61 @@ const QuerySchema = z.object({
   order:         z.enum(['asc','desc']).optional().default('desc'),
 })
 
+const FinalClientsQuerySchema = z.object({
+  clientId: IdSchema.optional(),
+  q: z.string().optional(),
+})
+
 // ── Routes ────────────────────────────────────────────────
 export async function requestRoutes(app: FastifyInstance) {
+
+  // GET /requests/final-clients — sugestões por conta vinculada
+  app.get('/requests/final-clients', { preHandler: [app.authenticate] }, async (req, reply) => {
+    const query = FinalClientsQuerySchema.parse(req.query)
+    const requester = req.user as JwtPayload
+
+    let clientId = query.clientId ?? undefined
+    if (requester.role === 'CLIENT') {
+      clientId = clientId && requester.clientIds.includes(clientId)
+        ? clientId
+        : (requester.defaultClientId ?? requester.clientIds[0])
+    }
+
+    if (!clientId) {
+      return reply.send([])
+    }
+
+    if (requester.role === 'CLIENT' && !requester.clientIds.includes(clientId)) {
+      throw new ForbiddenError('Acesso negado a este cliente.')
+    }
+
+    const rows = await prisma.request.findMany({
+      where: {
+        deletedAt: null,
+        clientId,
+        ...(query.q
+          ? { finalClientName: { contains: query.q, mode: 'insensitive' as const } }
+          : {}),
+      },
+      select: {
+        finalClientName: true,
+        finalClientCompany: true,
+        finalClientDocument: true,
+        finalClientContact: true,
+        finalClientPhone: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    })
+
+    const unique = new Map<string, (typeof rows)[number]>()
+    for (const row of rows) {
+      const key = `${row.finalClientName}::${row.finalClientDocument ?? ''}`.toLowerCase()
+      if (!unique.has(key)) unique.set(key, row)
+    }
+
+    return reply.send(Array.from(unique.values()))
+  })
 
   // GET /requests — fila com filtros
   app.get('/requests', { preHandler: [app.authenticate] }, async (req, reply) => {

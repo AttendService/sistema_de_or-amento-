@@ -51,10 +51,10 @@ export default function RequestDetailPage() {
     ?? quotes[0]
 
   const canDecide  = role === 'CLIENT' && ['QUOTE_SENT', 'ON_HOLD'].includes(request.status)
-  const canAnalyse = (role === 'ANALYST' || role === 'ADMIN')
+  const canAnalyse = (role === 'ANALYST' || role === 'ADMIN' || role === 'SUPER_ADMIN')
     && ['IN_ANALYSIS', 'QUOTE_IN_PROGRESS', 'QUOTE_SENT'].includes(request.status)
   // Permite assumir em REQUESTED ou reatribuir em qualquer estado ativo
-  const canAssign  = (role === 'ANALYST' || role === 'ADMIN')
+  const canAssign  = (role === 'ANALYST' || role === 'ADMIN' || role === 'SUPER_ADMIN')
     && ['REQUESTED', 'IN_ANALYSIS'].includes(request.status)
     && !request.assignedTo
 
@@ -108,7 +108,7 @@ export default function RequestDetailPage() {
 
   return (
     <div className="fade-in pb-12">
-      <div className="page-header flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border-b border-surface-200 px-6 py-4 -mx-6 -mt-6 mb-6">
+      <div className="page-header flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-surface-200 px-6 py-4 -mx-6 -mt-6 mb-6">
         <div className="flex items-start md:items-center gap-3">
           <button onClick={() => navigate(-1)} className="btn-ghost p-1.5 rounded hover:bg-surface-100 flex-shrink-0 mt-0.5 md:mt-0">
             <ChevronLeft size={18} className="text-surface-600" />
@@ -174,7 +174,7 @@ export default function RequestDetailPage() {
                     <XCircle size={14} /> Reprovar
                   </button>
                   {request.status !== 'ON_HOLD' && (
-                    <button className="btn-secondary btn-sm shadow-sm text-orange-600 border-orange-200 hover:bg-orange-50 bg-white"
+                    <button className="btn-secondary btn-sm shadow-sm text-orange-600 border-orange-200 hover:bg-orange-50"
                       onClick={() => setDecisionModal({ open: true, action: 'ON_HOLD' })}>
                       <PauseCircle size={14} /> Em espera
                     </button>
@@ -455,7 +455,7 @@ export default function RequestDetailPage() {
           <div className="xl:col-span-1 space-y-6">
             
             {/* Notas internas (Apenas Analistas/Admins) */}
-            {(role === 'ADMIN' || role === 'ANALYST') && (
+            {(role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'ANALYST') && (
               <div className="card">
                 <div className="card-header">
                   <span className="text-sm font-semibold flex items-center gap-2 text-surface-600">

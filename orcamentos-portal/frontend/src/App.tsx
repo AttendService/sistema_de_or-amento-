@@ -64,6 +64,7 @@ function RequireRole({ roles, children }: { roles: string[]; children: React.Rea
 
   if (!hydrated) return <BootLoader />
   if (!isAuth) return null
+  if (role === 'SUPER_ADMIN') return <>{children}</>
   if (!role || !roles.includes(role)) return <Navigate to={homePath} replace />
 
   return <>{children}</>

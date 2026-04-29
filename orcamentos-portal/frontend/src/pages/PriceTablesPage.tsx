@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import {
   useClients, usePriceTables, usePriceTable,
-  useCreatePriceTable, useCreatePriceItem, useUpdatePriceItem, useDeletePriceItem,
+  useCreatePriceTable, useCreatePriceItem, useUpdatePriceItem, useDeletePriceItem, useDeletePriceTable,
 } from '../hooks/queries'
 import { useServiceTypes } from '../hooks/queries'
 import {
@@ -58,11 +58,13 @@ export default function PriceTablesPage() {
   const createItem  = useCreatePriceItem()
   const updateItem  = useUpdatePriceItem()
   const deleteItem  = useDeletePriceItem()
+  const deleteTable = useDeletePriceTable()
 
   // Modais
   const [tableModal, setTableModal] = useState<{ open: boolean; mode: 'create' | 'edit' }>({ open: false, mode: 'create' })
   const [itemModal,  setItemModal]  = useState<{ open: boolean; item?: any }>({ open: false })
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; itemId: string } | null>(null)
+  const [deleteTableConfirm, setDeleteTableConfirm] = useState(false)
 
   const [tableForm, setTableForm] = useState({ name: '', description: '' })
   const [itemForm,  setItemForm]  = useState({
@@ -70,11 +72,27 @@ export default function PriceTablesPage() {
   })
 
   const handleCreateTable = async () => {
+    if (!selectedClientId) return
     try {
-      const result = await createTable.mutateAsync({ clientId: selectedClientId, data: tableForm })
+      const templateTable = activeTable ?? defaultTable
+      let result: any
+
+      // Regra: nova tabela já nasce com o modelo padrão para acelerar cadastro.
+      if (templateTable?.id) {
+        result = await api
+          .post(`/api/v1/clients/${selectedClientId}/price-tables/${templateTable.id}/clone`, {
+            newName: tableForm.name,
+          })
+          .then((r) => r.data)
+      } else {
+        result = await createTable.mutateAsync({ clientId: selectedClientId, data: tableForm })
+      }
+
       setSelectedTableId(result.id)
       setTableModal({ open: false, mode: 'create' })
       setTableForm({ name: '', description: '' })
+      await qc.invalidateQueries({ queryKey: ['price-tables', selectedClientId] })
+      await qc.invalidateQueries({ queryKey: ['price-tables', selectedClientId, result.id] })
     } catch (err) { setApiError(extractApiError(err)) }
   }
 
@@ -127,6 +145,18 @@ export default function PriceTablesPage() {
       })
       qc.invalidateQueries({ queryKey: ['price-tables', selectedClientId] })
     } catch (err) { setApiError(extractApiError(err)) }
+  }
+
+  const handleDeleteTable = async () => {
+    if (!activeTable?.id || !selectedClientId) return
+    try {
+      await deleteTable.mutateAsync({ clientId: selectedClientId, tableId: activeTable.id })
+      setDeleteTableConfirm(false)
+      setSelectedTableId('')
+      await qc.invalidateQueries({ queryKey: ['price-tables', selectedClientId] })
+    } catch (err) {
+      setApiError(extractApiError(err))
+    }
   }
 
   return (
@@ -206,6 +236,13 @@ export default function PriceTablesPage() {
                       <div className="flex items-center gap-2">
                         <button className="btn-ghost btn-sm" onClick={handleCloneTable} title="Clonar tabela">
                           <Copy size={14} />
+                        </button>
+                        <button
+                          className="btn-ghost btn-sm text-red-500 hover:text-red-600"
+                          onClick={() => setDeleteTableConfirm(true)}
+                          title="Excluir tabela"
+                        >
+                          <Trash2 size={14} />
                         </button>
                         <button className="btn-primary btn-sm"
                           onClick={() => { setItemModal({ open: true }); setItemForm({ code: '', description: '', unit: 'un', unitValue: '', serviceTypeId: '', notes: '', sortOrder: 0 }) }}>
@@ -321,6 +358,9 @@ export default function PriceTablesPage() {
               onChange={e => setTableForm(v => ({ ...v, description: e.target.value }))}
               className="form-input resize-none" />
           </FormField>
+          <p className="text-xs text-surface-400">
+            A nova tabela será criada com base no modelo padrão atual e você poderá ajustar os itens depois.
+          </p>
         </div>
       </Modal>
 
@@ -394,6 +434,26 @@ export default function PriceTablesPage() {
           }
         >
           <p className="text-sm text-surface-600">O item será desativado e não aparecerá mais na tabela. Orçamentos existentes não serão afetados.</p>
+        </Modal>
+      )}
+
+      {deleteTableConfirm && activeTable && (
+        <Modal
+          open
+          onClose={() => setDeleteTableConfirm(false)}
+          title="Excluir tabela de preços"
+          footer={
+            <>
+              <button className="btn-secondary" onClick={() => setDeleteTableConfirm(false)}>Cancelar</button>
+              <button className="btn-danger" onClick={handleDeleteTable} disabled={deleteTable.isPending}>
+                {deleteTable.isPending ? <Spinner size="sm" /> : <Trash2 size={14} />} Excluir tabela
+              </button>
+            </>
+          }
+        >
+          <p className="text-sm text-surface-600">
+            A tabela <strong>{activeTable.name}</strong> será arquivada e não aparecerá mais como opção ativa.
+          </p>
         </Modal>
       )}
     </div>

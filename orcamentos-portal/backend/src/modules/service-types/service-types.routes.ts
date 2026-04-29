@@ -8,13 +8,18 @@ import { NotFoundError } from '../../shared/errors/index.js'
 import { logAudit } from '../../shared/utils/index.js'
 import type { JwtPayload } from '../../shared/types/index.js'
 
+const IdSchema = z.string().regex(
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+  'ID inválido.',
+)
+
 const ServiceTypeSchema = z.object({
   name:        z.string().min(2).max(100),
   description: z.string().max(500).optional().nullable(),
   sortOrder:   z.number().int().optional().default(0),
 })
 
-const ParamsSchema = z.object({ id: z.string().uuid() })
+const ParamsSchema = z.object({ id: IdSchema })
 
 export async function serviceTypeRoutes(app: FastifyInstance) {
   const adminOnly = [app.authenticate, app.requireRole('ADMIN')]
