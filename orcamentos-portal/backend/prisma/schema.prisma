@@ -259,6 +259,7 @@ model Request {
   longitude             Decimal?      @db.Decimal(10, 7)
 
   // Dados do serviço
+  serviceProduct        String?       @map("service_product") @db.VarChar(500)
   description           String?       @db.Text
   observations          String?       @db.Text
   requestedDate         DateTime?     @map("requested_date") @db.Date
@@ -277,6 +278,7 @@ model Request {
   client                Client        @relation(fields: [clientId], references: [id])
   assignedToUser        User?         @relation("RequestAssignedTo", fields: [assignedTo], references: [id])
   serviceTypes          RequestServiceType[]
+  manualItems           RequestManualItem[]
   quotes                Quote[]
   history               RequestHistory[]
 
@@ -295,6 +297,20 @@ model RequestServiceType {
 
   @@unique([requestId, serviceTypeId])
   @@map("request_service_types")
+}
+
+model RequestManualItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  requestId     String   @map("request_id") @db.Uuid
+  description   String   @db.VarChar(500)
+  quantity      Decimal? @db.Decimal(10, 3)
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  request       Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("request_manual_items")
 }
 
 // Histórico de status da solicitação

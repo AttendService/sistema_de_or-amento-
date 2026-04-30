@@ -3,11 +3,11 @@
 // ============================================================
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
-  ChevronLeft, Check, Send, User, Building2, MapPin, Wrench, Zap,
+  ChevronLeft, Send, User, Building2, MapPin, Wrench, Zap, Plus, Trash2,
 } from 'lucide-react'
 import { useCreateRequest, useServiceTypes, useClients, useFinalClients } from '../hooks/queries'
 import { useAuthStore, useRole } from '../store/auth.store'
@@ -35,6 +35,11 @@ const optionalLongitude = z.preprocess(
   v => (v === '' || v === null || v === undefined ? null : Number(v)),
   z.number().min(-180).max(180).optional().nullable(),
 )
+const optionalQuantity = z.preprocess(
+  v => (v === '' || v === null || v === undefined ? undefined : Number(v)),
+  z.number().int('Use número inteiro').min(0, 'Quantidade inválida').optional(),
+)
+const technologyOptions = ['Starlink', 'Vsat', 'Roteador', 'Sdwan', 'Outros'] as const
 
 const schema = z.object({
   clientId:            uuidLike,
@@ -60,7 +65,8 @@ const schema = z.object({
   latitude:            optionalLatitude,
   longitude:           optionalLongitude,
   serviceTypeIds:      z.array(uuidLike).min(1, 'Selecione pelo menos um tipo de serviço'),
-  technology:          optionalStr,
+  technology:          z.array(z.enum(technologyOptions)).optional(),
+  serviceProducts:     z.array(z.object({ value: optionalStr, quantity: optionalQuantity })).optional(),
   description:         optionalStr,
   observations:        optionalStr,
   requestedDate:       optionalDate,
@@ -133,7 +139,13 @@ export default function NewRequestPage() {
       requesterEmail: user?.email ?? '',
       isUrgent:       false,
       serviceTypeIds: [],
+      technology: [],
+      serviceProducts: [{ value: '', quantity: undefined }],
     },
+  })
+  const { fields: serviceProductFields, append: appendServiceProduct, remove: removeServiceProduct } = useFieldArray({
+    control,
+    name: 'serviceProducts',
   })
 
   useEffect(() => {
@@ -156,9 +168,15 @@ export default function NewRequestPage() {
   const onSubmit = async (data: FormData) => {
     setApiError('')
     try {
-      const payload = { ...data }
-      if (payload.technology) {
-        payload.description = `[Tecnologia: ${payload.technology}]\n\n${payload.description || ''}`
+      const serviceProducts = (data.serviceProducts ?? [])
+        .map((item) => ({
+          description: item?.value?.trim() ?? '',
+          quantity: typeof item?.quantity === 'number' ? item.quantity : undefined,
+        }))
+        .filter((item) => item.description.length > 0)
+      const payload: any = { ...data, serviceProducts }
+      if (Array.isArray(payload.technology) && payload.technology.length > 0) {
+        payload.description = `[Tecnologia: ${payload.technology.join(', ')}]\n\n${payload.description || ''}`
       }
       // Remove o campo technology para não causar erro no backend
       delete (payload as any).technology
@@ -467,24 +485,81 @@ export default function NewRequestPage() {
                       <label className="block text-xs font-medium text-surface-600 mb-2">
                         Tecnologia
                       </label>
-                      <select
-                        {...register('technology')}
-                        className={inputCls(errors.technology?.message)}
-                      >
-                        <option value="">Selecione...</option>
-                        <option value="Starlink">Starlink</option>
-                        <option value="Vsat">Vsat</option>
-                        <option value="Roteador">Roteador</option>
-                        <option value="Sdwan">Sdwan</option>
-                        <option value="Outros">Outros</option>
-                      </select>
-                      {errors.technology?.message && (
-                        <p className="mt-1.5 text-[11px] text-red-500">{errors.technology.message}</p>
-                      )}
+                      <Controller
+                        name="technology"
+                        control={control}
+                        render={({ field }) => (
+                          <div className="space-y-2">
+                            <div className={`${inputCls()} p-2 max-h-44 overflow-y-auto`}>
+                              <div className="space-y-1">
+                                {technologyOptions.map((tech) => {
+                                  const checked = field.value?.includes(tech) ?? false
+                                  return (
+                                    <label key={tech} className="flex items-center gap-2 text-sm cursor-pointer p-1 rounded hover:bg-surface-50">
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={() => toggle(tech, field.value ?? [], field.onChange)}
+                                      />
+                                      <span>{tech}</span>
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                            <p className="text-[11px] text-surface-400">Selecione uma ou mais tecnologias.</p>
+                          </div>
+                        )}
+                      />
                     </div>
                   </div>
 
                   {/* Descrição */}
+                  <Field label="Serviço/Produto">
+                    <div className="space-y-2">
+                      {serviceProductFields.map((field, index) => (
+                        <div key={field.id} className="flex items-center gap-2">
+                          <div className="w-full max-w-[560px]">
+                            <input
+                              {...register(`serviceProducts.${index}.value`)}
+                              className={inputCls()}
+                              placeholder="Informe o serviço/produto desejado (opcional)"
+                            />
+                          </div>
+                          <div className="w-[120px]">
+                            <input
+                              {...register(`serviceProducts.${index}.quantity`)}
+                              type="number"
+                              step={1}
+                              min={0}
+                              className={inputCls()}
+                              placeholder="Qtd (opc.)"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeServiceProduct(index)}
+                            className="h-[34px] w-[34px] rounded-md border border-surface-200 text-surface-500 hover:bg-surface-50 disabled:opacity-40"
+                            disabled={serviceProductFields.length <= 1}
+                            title="Remover item"
+                          >
+                            <Trash2 size={14} className="mx-auto" />
+                          </button>
+                          {index === serviceProductFields.length - 1 && (
+                            <button
+                              type="button"
+                              onClick={() => appendServiceProduct({ value: '', quantity: undefined })}
+                              className="h-[34px] w-[34px] rounded-md border border-brand-300 text-brand-600 hover:bg-brand-50"
+                              title="Adicionar novo item"
+                            >
+                              <Plus size={14} className="mx-auto" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </Field>
+
                   <Field label="Descrição detalhada da necessidade">
                     <textarea
                       {...register('description')}

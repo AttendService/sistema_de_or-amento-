@@ -230,8 +230,14 @@ export default function RequestDetailPage() {
 
     if (!id || !request?.clientId || !activeQuote?.id || autoPopulatingRef.current) return
 
-    const hasItems = (activeQuote.items ?? []).length > 0
-    if (hasItems) return
+    const hasBlockingItems = (activeQuote.items ?? []).some((item: any) => {
+      const isSeedManualItem = item?.origin === 'MANUAL'
+        && !item?.priceItemId
+        && Number(item?.unitValue ?? 0) === 0
+        && Number(item?.totalValue ?? 0) === 0
+      return !isSeedManualItem
+    })
+    if (hasBlockingItems) return
 
     try {
       autoPopulatingRef.current = true

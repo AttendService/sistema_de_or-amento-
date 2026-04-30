@@ -138,6 +138,37 @@ export async function quoteRoutes(app: FastifyInstance) {
         },
       })
 
+      const manualItems = await tx.requestManualItem.findMany({
+        where: { requestId },
+        orderBy: { sortOrder: 'asc' },
+      })
+      const manualQuoteItems = manualItems.length > 0
+        ? manualItems
+            .map((item) => ({
+              description: item.description.trim(),
+              quantity: item.quantity ? Number(item.quantity) : 0,
+            }))
+            .filter((item) => item.description.length > 0)
+        : [typeof (request as any).serviceProduct === 'string' ? (request as any).serviceProduct.trim() : '']
+            .filter((item) => item.length > 0)
+            .map((description) => ({ description, quantity: 0 }))
+
+      if (manualQuoteItems.length > 0) {
+        await tx.quoteItem.createMany({
+          data: manualQuoteItems.map((item, index) => ({
+            quoteId: created.id,
+            origin: 'MANUAL',
+            description: item.description,
+            unit: 'un',
+            quantity: item.quantity,
+            unitValue: 0,
+            totalValue: 0,
+            sortOrder: index,
+          })),
+        })
+        await recalculateQuoteTotals(tx, created.id)
+      }
+
       // Atualiza status da solicitação para "Orçamento em elaboração"
       if (request.status === 'IN_ANALYSIS') {
         await tx.request.update({

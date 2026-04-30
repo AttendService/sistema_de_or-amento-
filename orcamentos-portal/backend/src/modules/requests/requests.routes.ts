@@ -21,6 +21,10 @@ const IdSchema = z.string().regex(
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
   'ID inválido.',
 )
+const ManualServiceProductSchema = z.object({
+  description: z.string().max(500),
+  quantity: z.number().int().min(0).optional().nullable(),
+})
 
 // ── Schemas ───────────────────────────────────────────────
 const CreateRequestSchema = z.object({
@@ -43,6 +47,7 @@ const CreateRequestSchema = z.object({
   reference:           z.string().optional().nullable(),
   latitude:            z.number().optional().nullable(),
   longitude:           z.number().optional().nullable(),
+  serviceProducts:     z.array(ManualServiceProductSchema).optional().nullable(),
   description:         z.string().optional().nullable(),
   observations:        z.string().optional().nullable(),
   requestedDate:       z.string().date().optional().nullable(),
@@ -188,6 +193,7 @@ export async function requestRoutes(app: FastifyInstance) {
           createdByUser: { select: { id: true, name: true, email: true } },
           assignedToUser: { select: { id: true, name: true } },
           serviceTypes:  { include: { serviceType: { select: { id: true, name: true } } } },
+          manualItems:   { orderBy: { sortOrder: 'asc' } },
           quotes:        { where: { deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 1,
                            select: { id: true, status: true, totalValue: true, sentAt: true } },
         },
@@ -210,6 +216,7 @@ export async function requestRoutes(app: FastifyInstance) {
         createdByUser:   { select: { id: true, name: true, email: true } },
         assignedToUser:  { select: { id: true, name: true, email: true } },
         serviceTypes:    { include: { serviceType: true } },
+        manualItems:     { orderBy: { sortOrder: 'asc' } },
         quotes:          {
           where: { deletedAt: null }, orderBy: { createdAt: 'desc' },
           include: {
@@ -265,6 +272,13 @@ export async function requestRoutes(app: FastifyInstance) {
       throw new ValidationError('Um ou mais tipos de serviço são inválidos ou inativos.')
     }
 
+    const manualItems = (data.serviceProducts ?? [])
+      .map((item) => ({
+        description: item.description.trim(),
+        quantity: item.quantity ?? null,
+      }))
+      .filter((item) => item.description.length > 0)
+
     const request = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const created = await tx.request.create({
         data: {
@@ -288,6 +302,7 @@ export async function requestRoutes(app: FastifyInstance) {
           reference:           data.reference    ?? null,
           latitude:            data.latitude     ?? null,
           longitude:           data.longitude    ?? null,
+          serviceProduct:      manualItems[0]?.description ?? null,
           description:         data.description  ?? null,
           observations:        data.observations ?? null,
           requestedDate:       data.requestedDate ? new Date(data.requestedDate) : null,
@@ -303,6 +318,17 @@ export async function requestRoutes(app: FastifyInstance) {
           serviceTypeId,
         })),
       })
+
+      if (manualItems.length > 0) {
+        await tx.requestManualItem.createMany({
+          data: manualItems.map((item, index) => ({
+            requestId: created.id,
+            description: item.description,
+            quantity: item.quantity,
+            sortOrder: index,
+          })),
+        })
+      }
 
       // Registrar histórico
       await tx.requestHistory.create({
@@ -356,8 +382,33 @@ export async function requestRoutes(app: FastifyInstance) {
     const data = result.data
 
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const { serviceTypeIds, ...rest } = data
+      const { serviceTypeIds, serviceProducts, ...rest } = data
+      const manualItems = (serviceProducts ?? [])
+        .map((item) => ({
+          description: item.description.trim(),
+          quantity: item.quantity ?? null,
+        }))
+        .filter((item) => item.description.length > 0)
       await tx.request.update({ where: { id }, data: rest })
+
+      if (serviceProducts !== undefined) {
+        await tx.request.update({
+          where: { id },
+          data:  { serviceProduct: manualItems[0]?.description ?? null },
+        })
+
+        await tx.requestManualItem.deleteMany({ where: { requestId: id } })
+        if (manualItems.length > 0) {
+          await tx.requestManualItem.createMany({
+            data: manualItems.map((item, index) => ({
+              requestId: id,
+              description: item.description,
+              quantity: item.quantity,
+              sortOrder: index,
+            })),
+          })
+        }
+      }
 
       if (serviceTypeIds) {
         await tx.requestServiceType.deleteMany({ where: { requestId: id } })
